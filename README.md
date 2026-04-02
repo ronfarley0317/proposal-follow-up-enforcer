@@ -155,7 +155,7 @@ This is part of the **Revenue Enforcement Framework** — open-source autonomous
 | Agent | Status | What It Enforces |
 |-------|--------|-----------------|
 | [Enforcement Live Dashboard](https://github.com/ronfarley0317/enforcement-live-dashboard) | ✅ Live | Watch enforcement agents operate in real time |
-| [Invoice Payment Enforcer](https://github.com/ronfarley0317/invoice-enforcer) | 🔧 In Progress | No invoice sits unpaid beyond terms |
+| [Invoice Payment Enforcer]([https://github.com/ronfarley0317/invoice-enforcer](https://github.com/ronfarley0317/invoice-enforcer)) | ✅ Live  | No invoice sits unpaid beyond terms |
 | [Proposal Follow-Up Enforcer](https://github.com/ronfarley0317/proposal-follow-up-enforcer) | ✅ Live | No proposal dies in silence |
 | [Scope Creep Detector](https://github.com/ronfarley0317/scope-creep-detector) | 🔧 In Progress | No work without compensation agreement |
 | [Revenue Leakage Counter](https://github.com/ronfarley0317/revenue-leakage-counter) | 🔧 In Progress | See how fast your business leaks revenue |
