@@ -1,0 +1,21 @@
+# Deployment Checklist
+
+- [ ] Production `.env` created with non-placeholder `RUNTIME_BEARER_TOKEN`
+- [ ] Production `.env` created with non-placeholder `RUNTIME_HMAC_SECRET`
+- [ ] `NODE_ENV=production`
+- [ ] Correct `HOST`, `PORT`, and DB path configured
+- [ ] `npm ci` completed successfully
+- [ ] `npm run build` completed successfully
+- [ ] `npm run migrate` completed successfully
+- [ ] `npm run test:v1` completed successfully in pre-prod or staging-like environment
+- [ ] `/health` returns `200`
+- [ ] `/ready` returns `200`
+- [ ] PM2 or systemd service installed
+- [ ] Nginx reverse proxy configured
+- [ ] HTTPS termination configured
+- [ ] Logs writable and reviewable
+- [ ] Restart behavior verified
+- [ ] Persistence survives restart
+- [ ] Valid signed request tested end-to-end
+- [ ] Idempotent retry tested
+- [ ] Conflicting payload with same idempotency key tested

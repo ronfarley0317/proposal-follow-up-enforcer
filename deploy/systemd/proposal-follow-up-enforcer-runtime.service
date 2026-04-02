@@ -1,0 +1,19 @@
+[Unit]
+Description=Proposal Follow-Up Enforcer Runtime
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/var/www/proposal-follow-up-enforcer-runtime
+EnvironmentFile=/var/www/proposal-follow-up-enforcer-runtime/.env
+ExecStart=/usr/bin/node /var/www/proposal-follow-up-enforcer-runtime/dist/server.js
+Restart=always
+RestartSec=5
+TimeoutStopSec=10
+KillSignal=SIGTERM
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
