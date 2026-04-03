@@ -7,6 +7,7 @@ import type { LightMyRequestResponse } from "fastify";
 
 import { buildApp } from "../../app.js";
 import { loadConfig, type AppConfig } from "../../config.js";
+import type { RuntimeRequest } from "../../contracts/runtime-request.js";
 import { runtimeResponseSchema } from "../../contracts/runtime-response.js";
 import { createLogger } from "../../logger.js";
 import { createPersistenceAdapter } from "../../persistence/index.js";
@@ -79,7 +80,7 @@ export async function createTestHarness(overrides: Partial<Record<string, string
   };
 }
 
-export function buildValidRequest(now = new Date("2026-04-02T14:00:00.000Z")) {
+export function buildValidRequest(now = new Date("2026-04-02T14:00:00.000Z")): RuntimeRequest {
   const sentAt = new Date(now.getTime() - 30 * 60 * 60 * 1000).toISOString();
   const lastOutreachAt = new Date(now.getTime() - 30 * 60 * 60 * 1000).toISOString();
 
@@ -158,7 +159,6 @@ export async function injectSignedRequest(params: {
   headers?: Record<string, string>;
 }): Promise<LightMyRequestResponse> {
   const bodyString = params.rawBody ?? JSON.stringify(params.body);
-  const parsedBody = params.rawBody ? undefined : params.body;
   const timestamp = new Date().toISOString();
   const baseRequest =
     params.body && typeof params.body === "object" && "request_id" in (params.body as Record<string, unknown>)

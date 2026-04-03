@@ -6,7 +6,7 @@ import type { PersistenceAdapter } from "../persistence/types.js";
 import { TimeoutError, withTimeout } from "../utils/timeout.js";
 
 export async function registerAdminRoutes(
-  app: FastifyInstance,
+  app: FastifyInstance<any, any, any, any>,
   config: AppConfig,
   persistence: PersistenceAdapter
 ) {

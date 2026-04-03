@@ -37,6 +37,10 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error("Startup failure", error);
+  if (error instanceof Error) {
+    console.error(`Startup failure: ${error.stack ?? error.message}`);
+  } else {
+    console.error(`Startup failure: ${String(error)}`);
+  }
   process.exit(1);
 });

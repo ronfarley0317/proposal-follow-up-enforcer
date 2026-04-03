@@ -14,7 +14,7 @@ import { summarizeDecisionRequest } from "../utils/request-summary.js";
 import { TimeoutError, withTimeout } from "../utils/timeout.js";
 
 export async function registerDecideRoute(
-  app: FastifyInstance,
+  app: FastifyInstance<any, any, any, any>,
   config: AppConfig,
   persistence: PersistenceAdapter
 ) {

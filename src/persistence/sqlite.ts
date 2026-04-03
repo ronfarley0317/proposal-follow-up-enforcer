@@ -24,7 +24,6 @@ export class SqlitePersistenceAdapter implements PersistenceAdapter {
     this.database = new Database(databasePath);
     this.database.pragma("journal_mode = WAL");
     this.database.pragma("foreign_keys = ON");
-
     this.executionRepository = new ExecutionRepository(this.database);
     this.idempotencyRepository = new IdempotencyRepository(this.database);
     this.proposalStateRepository = new ProposalStateRepository(this.database);

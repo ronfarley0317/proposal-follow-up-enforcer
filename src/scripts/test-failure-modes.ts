@@ -3,7 +3,14 @@ import assert from "node:assert/strict";
 import { buildApp } from "../app.js";
 import { loadConfig } from "../config.js";
 import { createLogger } from "../logger.js";
-import type { PersistenceAdapter, PersistExecutionInput, StoredProposalState } from "../persistence/types.js";
+import type {
+  IdempotencyLookupResult,
+  PersistenceAdapter,
+  PersistExecutionInput,
+  StoredExecutionRecord,
+  StoredIdempotencyRecord,
+  StoredProposalState
+} from "../persistence/types.js";
 import { buildValidRequest, createTestHarness, injectSignedRequest, parseJson, parseValidatedRuntimeResponse } from "./helpers/test-helpers.js";
 
 class FailingPersistenceAdapter implements PersistenceAdapter {
@@ -11,7 +18,16 @@ class FailingPersistenceAdapter implements PersistenceAdapter {
   async healthCheck() {
     return false;
   }
-  async getIdempotencyResult() {
+  async getSchemaVersion(): Promise<number> {
+    throw new Error("persistence down");
+  }
+  async getIdempotencyResult(): Promise<IdempotencyLookupResult> {
+    throw new Error("persistence down");
+  }
+  async findExecutionById(): Promise<StoredExecutionRecord | null> {
+    throw new Error("persistence down");
+  }
+  async findIdempotencyRecord(): Promise<StoredIdempotencyRecord | null> {
     throw new Error("persistence down");
   }
   async getProposalState(): Promise<StoredProposalState | null> {

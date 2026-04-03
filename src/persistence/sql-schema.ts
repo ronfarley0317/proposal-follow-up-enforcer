@@ -1,5 +1,4 @@
 export const SQLITE_INITIAL_SCHEMA_SQL = `
-
   CREATE TABLE IF NOT EXISTS executions (
     execution_id TEXT PRIMARY KEY,
     request_id TEXT NOT NULL,

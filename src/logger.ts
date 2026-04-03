@@ -58,7 +58,7 @@ function maskField(object: Record<string, unknown>, fieldName: string) {
 
 function maskString(value: string) {
   if (value.includes("@")) {
-    const [local, domain] = value.split("@");
+    const [local = "", domain = ""] = value.split("@");
     const visible = local.slice(0, 2);
     return `${visible}***@${domain}`;
   }

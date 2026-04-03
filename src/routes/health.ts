@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 
 import type { AppConfig } from "../config.js";
 
-export async function registerHealthRoute(app: FastifyInstance, config: AppConfig) {
+export async function registerHealthRoute(app: FastifyInstance<any, any, any, any>, config: AppConfig) {
   app.get("/health", async () => ({
     status: "ok",
     service: config.SERVICE_NAME,

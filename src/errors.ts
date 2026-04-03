@@ -7,8 +7,8 @@ type ErrorDetails = {
   code: string;
 }[];
 
-export function sendError(
-  reply: FastifyReply,
+export function sendError<TReply extends FastifyReply>(
+  reply: TReply,
   statusCode: number,
   errorCode: string,
   errorMessage: string,
