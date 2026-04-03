@@ -15,8 +15,11 @@ const configSchema = z.object({
   RUNTIME_HMAC_SECRET: z.string().min(16),
   REQUEST_TIMESTAMP_TOLERANCE_SECONDS: z.coerce.number().int().min(30).max(3600).default(300),
   REQUEST_MAX_BODY_BYTES: z.coerce.number().int().min(1024).max(1048576).default(262144),
-  DB_CLIENT: z.literal("sqlite").default("sqlite"),
+  DB_CLIENT: z.enum(["sqlite", "postgres"]).default("sqlite"),
   SQLITE_DB_PATH: z.string().min(1).default("./data/proposal-follow-up-enforcer.db"),
+  POSTGRES_URL: z.string().min(1).optional(),
+  POSTGRES_SSL_MODE: z.enum(["disable", "require"]).default("disable"),
+  POSTGRES_MAX_CONNECTIONS: z.coerce.number().int().min(1).max(50).default(10),
   REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1000).max(60000).default(10000),
   READINESS_TIMEOUT_MS: z.coerce.number().int().min(250).max(10000).default(2000),
   KEEP_ALIVE_TIMEOUT_MS: z.coerce.number().int().min(1000).max(30000).default(5000),
@@ -71,6 +74,10 @@ export type AppConfig = z.infer<typeof configSchema>;
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const parsed = configSchema.parse(env);
 
+  if (parsed.DB_CLIENT === "postgres" && !parsed.POSTGRES_URL) {
+    throw new Error("POSTGRES_URL is required when DB_CLIENT=postgres.");
+  }
+
   if (parsed.NODE_ENV === "production") {
     if (
       !parsed.FORCE_DEFAULT_SECRETS_ALLOWED &&
@@ -82,6 +89,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
 
     if (parsed.LOG_LEVEL === "trace") {
       throw new Error("Production configuration cannot use LOG_LEVEL=trace.");
+    }
+
+    if (parsed.DB_CLIENT === "sqlite") {
+      throw new Error("Production configuration should use DB_CLIENT=postgres for durable multi-process persistence.");
     }
   }
 

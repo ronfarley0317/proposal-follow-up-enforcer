@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import crypto from "node:crypto";
 
 import type { AppConfig } from "../config.js";
-import { runtimeRequestSchema } from "../contracts/runtime-request.js";
+import { isDryRunRequest, runtimeRequestSchema } from "../contracts/runtime-request.js";
 import { evaluateProposalDecision } from "../decision-engine/evaluate.js";
 import { buildDecisionPolicy } from "../decision-engine/policy.js";
 import { classifyValidationIssues, sendError } from "../errors.js";
@@ -60,9 +60,51 @@ export async function registerDecideRoute(
     }
 
     request.log.info(
-      summarizeDecisionRequest(parsed.data),
+      {
+        ...summarizeDecisionRequest(parsed.data),
+        dry_run: isDryRunRequest(parsed.data)
+      },
       "Decision request validated"
     );
+
+    if (isDryRunRequest(parsed.data)) {
+      let previousState;
+      try {
+        previousState = await withTimeout(
+          persistence.getProposalState(parsed.data.inputs.normalized_payload.proposal_id),
+          config.REQUEST_TIMEOUT_MS,
+          () => new TimeoutError("Proposal state lookup timed out")
+        );
+      } catch (error) {
+        request.log.error({ err: error, request_id: parsed.data.request_id }, "Proposal state lookup failed");
+        return sendError(reply, 503, "PERSISTENCE_UNAVAILABLE", "Persistence dependency is unavailable");
+      }
+
+      const executionId = `exec_${crypto.randomUUID()}`;
+      const decision = evaluateProposalDecision({
+        request: parsed.data,
+        policy: buildDecisionPolicy(config),
+        previousState
+      });
+      const response = buildRuntimeResponseFromDecision({
+        config,
+        request: parsed.data,
+        executionId,
+        result: decision,
+        dryRun: true
+      });
+
+      request.log.info(
+        {
+          request_id: parsed.data.request_id,
+          execution_id: executionId,
+          response_type: response.response_type
+        },
+        "Dry-run decision completed without persistence"
+      );
+
+      return reply.code(200).send(response);
+    }
 
     const requestHash = hashRequestPayload(parsed.data);
     let idempotencyResult;
@@ -134,7 +176,8 @@ export async function registerDecideRoute(
       config,
       request: parsed.data,
       executionId,
-      result: decision
+      result: decision,
+      dryRun: false
     });
     const httpStatusCode = decision.responseType === "failed" ? 200 : 200;
 

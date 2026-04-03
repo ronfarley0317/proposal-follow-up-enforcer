@@ -167,7 +167,43 @@ const decisionFixtures: DecisionResult[] = [
 ];
 
 async function main() {
-  const config = loadConfig();
+  const config = loadConfig({
+    NODE_ENV: "test",
+    HOST: "127.0.0.1",
+    PORT: "8080",
+    LOG_LEVEL: "fatal",
+    SERVICE_NAME: "proposal-follow-up-enforcer-runtime-test",
+    SERVICE_ENVIRONMENT: "test",
+    AGENT_ID: "proposal-follow-up-enforcer",
+    AGENT_VERSION: "v1.0.0",
+    API_VERSION: "1.0",
+    TIMEZONE_DEFAULT: "America/New_York",
+    RUNTIME_BEARER_TOKEN: "test-bearer-token-123456",
+    RUNTIME_HMAC_SECRET: "test-hmac-secret-123456",
+    REQUEST_TIMESTAMP_TOLERANCE_SECONDS: "300",
+    REQUEST_MAX_BODY_BYTES: "262144",
+    DB_CLIENT: "sqlite",
+    SQLITE_DB_PATH: "./data/test-event-schema.db",
+    REQUEST_TIMEOUT_MS: "10000",
+    READINESS_TIMEOUT_MS: "2000",
+    KEEP_ALIVE_TIMEOUT_MS: "5000",
+    FORCE_DEFAULT_SECRETS_ALLOWED: "true",
+    AI_DRAFTING_ENABLED: "false",
+    FOLLOW_UP_1_DELAY_HOURS: "24",
+    FOLLOW_UP_2_DELAY_HOURS: "72",
+    CALL_TASK_DELAY_DAYS: "7",
+    MAX_AUTOMATED_EMAIL_TOUCHES: "2",
+    RECENT_REPLY_SUPPRESSION_HOURS: "72",
+    RECENT_OUTREACH_SUPPRESSION_HOURS: "24",
+    ESCALATION_VALUE_THRESHOLD: "5000",
+    ESCALATION_SILENCE_HOURS: "72",
+    HIGH_VALUE_APPROVAL_THRESHOLD: "15000",
+    EXPIRY_URGENCY_DAYS: "2",
+    LOW_CONFIDENCE_THRESHOLD: "0.6",
+    VIEW_INTENT_PRIORITY_WINDOW_HOURS: "24",
+    SENSITIVE_SEGMENTS: "vip,strategic,sensitive",
+    TRUST_PROXY: "false"
+  });
   for (const [index, decisionResult] of decisionFixtures.entries()) {
     const executionId = `exec_test_00${index + 1}`;
     const response = buildRuntimeResponseFromDecision({
@@ -194,6 +230,11 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(error);
+  if (error instanceof Error) {
+    console.error(error.stack ?? error.message);
+  } else {
+    console.error(String(error));
+  }
   process.exit(1);
 });
+

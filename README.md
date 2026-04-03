@@ -96,14 +96,38 @@ npm run migrate
 npm run dev
 ```
 
+<<<<<<< HEAD
 Verify the service is live:
+=======
+Initialize the configured database:
+>>>>>>> bbbac2e (Add PostgreSQL adapter and admin endpoints)
 
 ```bash
 curl http://localhost:8080/health
 curl http://localhost:8080/ready
 ```
 
+<<<<<<< HEAD
 ---
+=======
+Local development should normally use:
+
+```env
+DB_CLIENT=sqlite
+SQLITE_DB_PATH=./data/proposal-follow-up-enforcer.db
+```
+
+For production-like testing with PostgreSQL:
+
+```env
+DB_CLIENT=postgres
+POSTGRES_URL=postgres://user:password@127.0.0.1:5432/proposal_follow_up_enforcer
+POSTGRES_SSL_MODE=disable
+POSTGRES_MAX_CONNECTIONS=10
+```
+
+Production build:
+>>>>>>> bbbac2e (Add PostgreSQL adapter and admin endpoints)
 
 ## Revenue Impact
 
@@ -125,11 +149,31 @@ curl http://localhost:8080/ready
 
 Adjust the inputs for your business. The formula holds.
 
+<<<<<<< HEAD
 ---
+=======
+1. Install Node.js 20+ and build tools.
+2. Copy the project to `/var/www/proposal-follow-up-enforcer-runtime`.
+3. Create `.env` with production secrets and non-placeholder values.
+4. Set PostgreSQL as the production backend:
+
+```env
+DB_CLIENT=postgres
+POSTGRES_URL=postgres://user:password@db-host:5432/proposal_follow_up_enforcer
+POSTGRES_SSL_MODE=require
+POSTGRES_MAX_CONNECTIONS=10
+```
+
+5. Install dependencies and build:
+>>>>>>> bbbac2e (Add PostgreSQL adapter and admin endpoints)
 
 ## Decision Engine
 
+<<<<<<< HEAD
 The enforcer doesn't send indiscriminately. Each evaluation runs a deterministic decision against the current proposal state:
+=======
+6. Run with `pm2`:
+>>>>>>> bbbac2e (Add PostgreSQL adapter and admin endpoints)
 
 | Condition | Action |
 |-----------|--------|
@@ -148,10 +192,15 @@ Every decision is logged with confidence score, reason codes, and enforcement ev
 
 ---
 
+<<<<<<< HEAD
 ## Enforcement Agents Collection
+=======
+7. Put Nginx in front of the app and proxy to `127.0.0.1:8080`.
+>>>>>>> bbbac2e (Add PostgreSQL adapter and admin endpoints)
 
 This is part of the **Revenue Enforcement Framework** — open-source autonomous agents that make revenue leakage structurally impossible.
 
+<<<<<<< HEAD
 | Agent | Status | What It Enforces |
 |-------|--------|-----------------|
 | [Enforcement Live Dashboard](https://github.com/ronfarley0317/enforcement-live-dashboard) | ✅ Live | Watch enforcement agents operate in real time |
@@ -159,6 +208,15 @@ This is part of the **Revenue Enforcement Framework** — open-source autonomous
 | [Proposal Follow-Up Enforcer](https://github.com/ronfarley0317/proposal-follow-up-enforcer) | ✅ Live | No proposal dies in silence |
 | [Scope Creep Detector](https://github.com/ronfarley0317/scope-creep-detector) | 🔧 In Progress | No work without compensation agreement |
 | [Revenue Leakage Counter](https://github.com/ronfarley0317/revenue-leakage-counter) | 🔧 In Progress | See how fast your business leaks revenue |
+=======
+- `/ready` returns `503` if persistence is unavailable or AI drafting is enabled without a provider key.
+- production startup rejects `DB_CLIENT=sqlite`
+- production startup rejects placeholder secrets by default
+- request logging masks email addresses and redacts auth/signature headers
+- persistence calls are timeout-guarded
+- duplicate requests remain idempotent through stored response replay
+- process restarts are safe because execution/idempotency/state are persisted
+>>>>>>> bbbac2e (Add PostgreSQL adapter and admin endpoints)
 
 ---
 

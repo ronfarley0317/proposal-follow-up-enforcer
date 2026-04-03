@@ -63,7 +63,8 @@ export const runtimeResponseSchema = z.object({
   dashboard_events: z.array(enforcementEventSchema).min(1),
   errors: z.array(responseErrorSchema),
   meta: z.object({
-    terminal: z.boolean()
+    terminal: z.boolean(),
+    dry_run: z.boolean().optional()
   })
 });
 

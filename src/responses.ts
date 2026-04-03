@@ -149,6 +149,7 @@ export function buildRuntimeResponseFromDecision(params: {
   request: RuntimeRequest;
   executionId: string;
   result: DecisionResult;
+  dryRun?: boolean;
 }): RuntimeResponse {
   const response: RuntimeResponse = {
     api_version: params.config.API_VERSION,
@@ -180,7 +181,8 @@ export function buildRuntimeResponseFromDecision(params: {
     dashboard_events: [],
     errors: params.result.errors,
     meta: {
-      terminal: params.result.terminal
+      terminal: params.result.terminal,
+      dry_run: params.dryRun ?? false
     }
   };
 

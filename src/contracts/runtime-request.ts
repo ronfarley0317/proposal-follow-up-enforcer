@@ -79,3 +79,7 @@ export const runtimeRequestSchema = z.object({
 
 export type RuntimeRequest = z.infer<typeof runtimeRequestSchema>;
 export type RuntimeNormalizedPayload = z.infer<typeof normalizedPayloadSchema>;
+
+export function isDryRunRequest(request: RuntimeRequest) {
+  return request.options?.dry_run === true;
+}

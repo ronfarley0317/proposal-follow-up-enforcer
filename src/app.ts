@@ -7,13 +7,14 @@ import { sendError } from "./errors.js";
 import { createAuthMiddleware } from "./middleware/auth.js";
 import { attachRequestContext } from "./middleware/request-context.js";
 import type { PersistenceAdapter } from "./persistence/types.js";
+import { registerAdminRoutes } from "./routes/admin.js";
 import { registerDecideRoute } from "./routes/decide.js";
 import { registerHealthRoute } from "./routes/health.js";
 import { registerReadyRoute } from "./routes/ready.js";
 
 export async function buildApp(config: AppConfig, logger: Logger, persistence: PersistenceAdapter) {
   const app = Fastify({
-    logger,
+    loggerInstance: logger,
     trustProxy: config.TRUST_PROXY,
     bodyLimit: config.REQUEST_MAX_BODY_BYTES,
     requestIdHeader: "x-request-id",
@@ -57,11 +58,13 @@ export async function buildApp(config: AppConfig, logger: Logger, persistence: P
   const authMiddleware = createAuthMiddleware(config);
 
   app.addHook("preValidation", async (request, reply) => {
-    const isDecisionRoute =
-      request.method === "POST" &&
-      (request.routeOptions.url === "/api/v1/decide" || request.url.startsWith("/api/v1/decide"));
+    const requiresAuth =
+      request.url.startsWith("/api/v1/decide") ||
+      request.url.startsWith("/api/v1/executions/") ||
+      request.url.startsWith("/api/v1/proposals/") ||
+      request.url.startsWith("/api/v1/idempotency/");
 
-    if (isDecisionRoute) {
+    if (requiresAuth) {
       return authMiddleware(request, reply);
     }
   });
@@ -87,6 +90,7 @@ export async function buildApp(config: AppConfig, logger: Logger, persistence: P
   await registerHealthRoute(app, config);
   await registerReadyRoute(app, config, persistence);
   await registerDecideRoute(app, config, persistence);
+  await registerAdminRoutes(app, config, persistence);
 
   return app;
 }

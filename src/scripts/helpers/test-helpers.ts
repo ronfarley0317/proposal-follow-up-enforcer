@@ -159,7 +159,7 @@ export async function injectSignedRequest(params: {
 }): Promise<LightMyRequestResponse> {
   const bodyString = params.rawBody ?? JSON.stringify(params.body);
   const parsedBody = params.rawBody ? undefined : params.body;
-  const timestamp = new Date("2026-04-02T14:00:00.000Z").toISOString();
+  const timestamp = new Date().toISOString();
   const baseRequest =
     params.body && typeof params.body === "object" && "request_id" in (params.body as Record<string, unknown>)
       ? (params.body as Record<string, unknown>)

@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - "codex/**"
+      - "feature/**"
+      - "fix/**"
+  pull_request:
+
+jobs:
+  validate:
+    name: Validate Runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: .
+
+    env:
+      NODE_ENV: test
+      HOST: 127.0.0.1
+      PORT: 8080
+      LOG_LEVEL: fatal
+      SERVICE_NAME: proposal-follow-up-enforcer-runtime-ci
+      SERVICE_ENVIRONMENT: ci
+      AGENT_ID: proposal-follow-up-enforcer
+      AGENT_VERSION: v1.0.0
+      API_VERSION: "1.0"
+      TIMEZONE_DEFAULT: America/New_York
+      RUNTIME_BEARER_TOKEN: test-bearer-token-123456
+      RUNTIME_HMAC_SECRET: test-hmac-secret-123456
+      REQUEST_TIMESTAMP_TOLERANCE_SECONDS: 300
+      REQUEST_MAX_BODY_BYTES: 262144
+      DB_CLIENT: sqlite
+      SQLITE_DB_PATH: ./data/ci-runtime.db
+      REQUEST_TIMEOUT_MS: 10000
+      READINESS_TIMEOUT_MS: 2000
+      KEEP_ALIVE_TIMEOUT_MS: 5000
+      FORCE_DEFAULT_SECRETS_ALLOWED: true
+      AI_DRAFTING_ENABLED: false
+      FOLLOW_UP_1_DELAY_HOURS: 24
+      FOLLOW_UP_2_DELAY_HOURS: 72
+      CALL_TASK_DELAY_DAYS: 7
+      MAX_AUTOMATED_EMAIL_TOUCHES: 2
+      RECENT_REPLY_SUPPRESSION_HOURS: 72
+      RECENT_OUTREACH_SUPPRESSION_HOURS: 24
+      ESCALATION_VALUE_THRESHOLD: 5000
+      ESCALATION_SILENCE_HOURS: 72
+      HIGH_VALUE_APPROVAL_THRESHOLD: 15000
+      EXPIRY_URGENCY_DAYS: 2
+      LOW_CONFIDENCE_THRESHOLD: 0.6
+      VIEW_INTENT_PRIORITY_WINDOW_HOURS: 24
+      SENSITIVE_SEGMENTS: vip,strategic,sensitive
+      TRUST_PROXY: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Migrations
+        run: npm run migrate
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Validate Contract Tests
+        run: npm run test:contracts
+
+      - name: Validate Event Schema
+        run: npm run test:events
+
+      - name: Validate Scenario Matrix
+        run: npm run test:scenarios
+
+      - name: Validate Failure Modes
+        run: npm run test:failures
+
+      - name: Build
+        run: npm run build

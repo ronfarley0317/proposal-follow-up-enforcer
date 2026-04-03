@@ -13,7 +13,23 @@ async function main() {
       body: validRequest
     });
     assert.equal(validResponse.statusCode, 200);
-    parseValidatedRuntimeResponse(validResponse);
+    const validatedResponse = parseValidatedRuntimeResponse(validResponse);
+    assert.equal(validatedResponse.meta.dry_run, false);
+
+    const dryRunRequest = buildValidRequest();
+    dryRunRequest.request_id = "req_dry_run_001";
+    dryRunRequest.idempotency_key = "proposal_123:dry-run";
+    dryRunRequest.options = {
+      ...(dryRunRequest.options ?? {}),
+      dry_run: true
+    };
+    const dryRunResponse = parseValidatedRuntimeResponse(
+      await injectSignedRequest({
+        harness,
+        body: dryRunRequest
+      })
+    );
+    assert.equal(dryRunResponse.meta.dry_run, true);
 
     const invalidAuthResponse = await injectSignedRequest({
       harness,

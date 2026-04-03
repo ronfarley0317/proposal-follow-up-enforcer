@@ -11,7 +11,11 @@
 
 1. Copy the project to `/var/www/proposal-follow-up-enforcer-runtime`
 2. Create a production `.env` with non-placeholder secrets
-3. Run:
+3. Set PostgreSQL configuration:
+   - `DB_CLIENT=postgres`
+   - valid `POSTGRES_URL`
+   - `POSTGRES_SSL_MODE=require` when needed by the provider
+4. Run:
 
 ```bash
 cd /var/www/proposal-follow-up-enforcer-runtime
@@ -20,7 +24,7 @@ npm run build
 npm run migrate
 ```
 
-4. Start using one of:
+5. Start using one of:
 
 ```bash
 pm2 start ecosystem.config.cjs
@@ -36,6 +40,9 @@ sudo systemctl start proposal-follow-up-enforcer-runtime
 
 - Liveness: `GET /health`
 - Readiness: `GET /ready`
+- Execution lookup: `GET /api/v1/executions/:executionId`
+- Proposal state lookup: `GET /api/v1/proposals/:proposalId/state`
+- Idempotency lookup: `GET /api/v1/idempotency/:idempotencyKey`
 
 Expected:
 - `/health` returns `200` if process is alive
@@ -64,9 +71,15 @@ Expected:
 - treat this as a producer bug, not a retry
 
 ### `503 PERSISTENCE_UNAVAILABLE`
-- inspect SQLite file path or database mount
-- inspect file permissions
+- inspect the configured persistence backend
+- for SQLite, inspect database file path and permissions
+- for PostgreSQL, inspect `POSTGRES_URL`, network reachability, and database credentials
 - inspect `/ready`
+
+### Inspecting Stored State
+- use `/api/v1/proposals/:proposalId/state` to verify lifecycle stage, touch count, and terminal state
+- use `/api/v1/executions/:executionId` to inspect stored runtime response
+- use `/api/v1/idempotency/:idempotencyKey` to confirm replay/conflict behavior
 
 ## Replay / Retry Handling
 
@@ -91,6 +104,6 @@ Expected:
 
 1. Check `/ready`
 2. Review most recent logs
-3. Verify database file exists and is writable
+3. Verify the configured persistence backend is reachable
 4. Retry with the same request if the failure was transient
 5. If retry must not replay, use a new idempotency key only after confirming a new evaluation is intended

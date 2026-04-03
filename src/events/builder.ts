@@ -134,6 +134,7 @@ export function buildDashboardEvents(params: {
       error_message: primaryError?.error_message ?? null
     },
     metadata: {
+      dry_run: params.response.meta.dry_run ?? false,
       follow_up_stage: payload.follow_up_stage,
       days_since_sent: getDaysSinceSent(payload, eventTime),
       view_count: payload.view_count ?? 0,

@@ -20,6 +20,14 @@
 - Approval-threshold proposal -> pending_human
 - Invalid payload timeline -> failed
 
+## State / Reopen Edge Tests
+
+- Terminal `won` proposal remains suppressed until reopened
+- Reopened `sent` proposal re-enters enforcement
+- Duplicate success decision across repeated evaluations is suppressed
+- Pending human preserves stage and escalation metadata
+- Escalated proposal preserves stage and touch counter
+
 ## Failure Mode Tests
 
 - Idempotent retry

@@ -73,7 +73,10 @@ export type PersistExecutionInput = {
 export interface PersistenceAdapter {
   init(): Promise<void>;
   healthCheck(): Promise<boolean>;
+  getSchemaVersion(): Promise<number>;
   getIdempotencyResult(idempotencyKey: string, requestHash: string): Promise<IdempotencyLookupResult>;
+  findExecutionById(executionId: string): Promise<StoredExecutionRecord | null>;
+  findIdempotencyRecord(idempotencyKey: string): Promise<StoredIdempotencyRecord | null>;
   getProposalState(proposalId: string): Promise<StoredProposalState | null>;
   persistExecution(input: PersistExecutionInput): Promise<void>;
   close(): Promise<void>;

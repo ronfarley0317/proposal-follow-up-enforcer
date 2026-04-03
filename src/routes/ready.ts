@@ -12,6 +12,7 @@ export async function registerReadyRoute(
   app.get("/ready", async (_, reply) => {
     let persistenceReady = false;
     let persistenceError: string | null = null;
+    let schemaVersion: number | null = null;
 
     try {
       persistenceReady = await withTimeout(
@@ -21,6 +22,19 @@ export async function registerReadyRoute(
       );
     } catch (error) {
       persistenceError = error instanceof Error ? error.message : "unknown persistence failure";
+    }
+
+    if (persistenceReady) {
+      try {
+        schemaVersion = await withTimeout(
+          persistence.getSchemaVersion(),
+          config.READINESS_TIMEOUT_MS,
+          () => new TimeoutError("Schema version lookup timed out")
+        );
+      } catch (error) {
+        persistenceReady = false;
+        persistenceError = error instanceof Error ? error.message : "unknown schema version failure";
+      }
     }
 
     const aiDependencyReady =
@@ -35,6 +49,7 @@ export async function registerReadyRoute(
         config_loaded: true,
         auth_configured: true,
         persistence_configured: persistenceReady,
+        schema_version: schemaVersion,
         decision_engine_loaded: true,
         ai_drafting_configured: aiDependencyReady
       },

@@ -37,6 +37,23 @@ async function main() {
     );
     assert.equal(firstResponse.execution_id, secondResponse.execution_id);
 
+    const dryRunRequest = buildValidRequest();
+    dryRunRequest.idempotency_key = "proposal_123:dry-run-repeat";
+    dryRunRequest.request_id = "req_dry_run_repeat";
+    dryRunRequest.options = {
+      ...(dryRunRequest.options ?? {}),
+      dry_run: true
+    };
+    const firstDryRunResponse = parseValidatedRuntimeResponse(
+      await injectSignedRequest({ harness, body: dryRunRequest })
+    );
+    const secondDryRunResponse = parseValidatedRuntimeResponse(
+      await injectSignedRequest({ harness, body: dryRunRequest })
+    );
+    assert.notEqual(firstDryRunResponse.execution_id, secondDryRunResponse.execution_id);
+    assert.equal(firstDryRunResponse.meta.dry_run, true);
+    assert.equal(secondDryRunResponse.meta.dry_run, true);
+
     const conflictingRequest = buildValidRequest();
     conflictingRequest.idempotency_key = "proposal_123:conflict";
     const originalConflictResponse = await injectSignedRequest({ harness, body: conflictingRequest });
