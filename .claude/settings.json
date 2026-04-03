@@ -1,0 +1,27 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=$(jq -r '.tool_input.file_path // empty'); [[ -n \"$f\" && \"$f\" == *\"/src/\"* ]] && grep -qE '(anthropic|ANTHROPIC_API_KEY|AI_DRAFTING)' \"$f\" 2>/dev/null && echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"This file touches the Anthropic/AI drafting integration. Use the /claude-api skill if modifying Anthropic SDK patterns.\"}}' || true",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"Skills for this project: /claude-api (Anthropic SDK patterns), /schedule (set up cron/recurring agents), /loop (health polling and recurring monitoring on port 8080).\"}}'",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
