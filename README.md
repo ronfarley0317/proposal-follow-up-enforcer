@@ -35,214 +35,159 @@ graph LR
     J -->|YES| D
     J -->|NO| K[Escalate to Owner]
     K --> L[Context: value + open count + draft message]
-```
 
-**How it works:**
+How it works:
 
-1. **Detection** — Proposal creation event triggers the enforcement clock. The agent reads proposal value, contact, owner, and current follow-up stage. Previous enforcement state is checked — no duplicate actions fire.
+Detection — Proposal creation event triggers the enforcement clock. The agent reads proposal value, contact, owner, and current follow-up stage. Previous enforcement state is checked so no duplicate actions fire.
+Intervention — At 24 hours of silence, Follow-Up 1 sends autonomously. At 72 hours, Follow-Up 2 sends with a different angle. View intent is weighted — a proposal opened three times with no reply gets prioritized differently than one never opened. High-value proposals ($5K+) that go silent past 72 hours escalate immediately.
+Escalation — At day 10, or when proposal value exceeds $15K, the agent packages full context — proposal value, open history, last outreach timestamp, and a pre-drafted message — and routes to the owner for one-click approval. The owner approves or adjusts. The agent sends. Nothing requires writing from scratch.
+Setup
+Local development
 
-2. **Intervention** — At 24 hours of silence: Follow-Up 1 sends autonomously. At 72 hours: Follow-Up 2 with a different angle. View intent is weighted — a proposal opened three times with no reply gets prioritized differently than one never opened. High-value proposals ($5K+) that go silent past 72 hours escalate immediately.
+Clone and install:
 
-3. **Escalation** — At day 10, or when proposal value exceeds $15K, the agent packages full context — proposal value, open history, last outreach timestamp, and a pre-drafted message — and routes to the owner for one-click approval. The owner approves or adjusts. The agent sends. Nothing requires writing from scratch.
-
----
-
-## Setup (5 minutes)
-
-**Clone and run locally:**
-
-```bash
 git clone https://github.com/ronfarley0317/proposal-follow-up-enforcer.git
 cd proposal-follow-up-enforcer
 npm install
-```
 
-**Configure your integrations:**
+Create your environment file:
 
-```bash
 cp .env.example .env
-```
 
-Edit `.env` with your credentials:
+Recommended local development settings:
 
-```
 RUNTIME_BEARER_TOKEN=your_strong_token
 RUNTIME_HMAC_SECRET=your_strong_secret
+DB_CLIENT=sqlite
 SQLITE_DB_PATH=./data/proposal-follow-up-enforcer.db
 FOLLOW_UP_1_DELAY_HOURS=24
 FOLLOW_UP_2_DELAY_HOURS=72
 CALL_TASK_DELAY_DAYS=7
 ESCALATION_VALUE_THRESHOLD=5000
 HIGH_VALUE_APPROVAL_THRESHOLD=15000
-```
 
-**Initialize the database:**
-
-```bash
-npm run migrate
-```
-
-**Import the n8n workflow:**
-
-1. Open your n8n instance
-2. Click Import Workflow
-3. Select `workflows/proposal-follow-up-enforcer.json`
-4. Update credentials in the workflow nodes — CRM webhook, SMTP or email provider, n8n bearer token
-5. Activate the workflow
-
-**Run locally:**
-
-```bash
-npm run dev
-```
-
-HEAD
-Verify the service is live:
 Initialize the configured database:
-bbbac2e (Add PostgreSQL adapter and admin endpoints)
 
-```bash
+npm run migrate
+
+Run locally:
+
+npm run dev
+
+Verify the service is live:
+
 curl http://localhost:8080/health
 curl http://localhost:8080/ready
-```
+n8n workflow setup
+Open your n8n instance
+Click Import Workflow
+Select workflows/proposal-follow-up-enforcer.json
+Update credentials in the workflow nodes — CRM webhook, SMTP or email provider, and n8n bearer token
+Activate the workflow
+Production-like PostgreSQL testing
 
-<<<<<<< HEAD
----
-=======
-Local development should normally use:
+Use PostgreSQL when you want to test closer to production behavior:
 
-```env
-DB_CLIENT=sqlite
-SQLITE_DB_PATH=./data/proposal-follow-up-enforcer.db
-```
-
-For production-like testing with PostgreSQL:
-
-```env
 DB_CLIENT=postgres
 POSTGRES_URL=postgres://user:password@127.0.0.1:5432/proposal_follow_up_enforcer
 POSTGRES_SSL_MODE=disable
 POSTGRES_MAX_CONNECTIONS=10
-```
+Production deployment
+Install Node.js 20+ and required build tools
+Copy the project to /var/www/proposal-follow-up-enforcer-runtime
+Create .env with real production secrets
+Set PostgreSQL as the production backend:
+DB_CLIENT=postgres
+POSTGRES_URL=postgres://user:password@db-host:5432/proposal_follow_up_enforcer
+POSTGRES_SSL_MODE=require
+POSTGRES_MAX_CONNECTIONS=10
+Install dependencies and build
+Run with pm2
+Put Nginx in front of the app and proxy to 127.0.0.1:8080
 
-Production build:
->>>>>>> bbbac2e (Add PostgreSQL adapter and admin endpoints)
+Production rules:
 
-## Revenue Impact
+/ready returns 503 if persistence is unavailable or AI drafting is enabled without a provider key
+production startup rejects DB_CLIENT=sqlite
+production startup rejects placeholder secrets by default
+request logging masks email addresses and redacts auth/signature headers
+persistence calls are timeout-guarded
+duplicate requests remain idempotent through stored response replay
+process restarts are safe because execution, idempotency, and state are persisted
+Revenue Impact
+$375K–$750K in annual pipeline recovered, assuming 25–50% of silenced proposals are recovered
+100% of proposals receive systematic follow-up instead of depending on rep memory
+10-day maximum silence before human escalation fires with full context
+Typical payback period is 2–6 weeks at normal proposal volumes
 
-- **$375K–$750K** in annual pipeline recovered (conservative: 25–50% of silenced proposals)
-- **100%** of proposals receive systematic follow-up — not dependent on rep memory
-- **10-day** maximum silence before human escalation fires with full context
-- Payback period: 2–6 weeks at typical proposal volumes
+The math:
 
-**The math:**
-
-```
 20 proposals/month
 × 50% not receiving systematic follow-up
 × $25,000 average proposal value
 × 25% lift from enforcement
 × 12 months
 = $750,000 annual leakage prevented
-```
 
 Adjust the inputs for your business. The formula holds.
 
-<<<<<<< HEAD
----
-=======
-1. Install Node.js 20+ and build tools.
-2. Copy the project to `/var/www/proposal-follow-up-enforcer-runtime`.
-3. Create `.env` with production secrets and non-placeholder values.
-4. Set PostgreSQL as the production backend:
+Decision Engine
 
-```env
-DB_CLIENT=postgres
-POSTGRES_URL=postgres://user:password@db-host:5432/proposal_follow_up_enforcer
-POSTGRES_SSL_MODE=require
-POSTGRES_MAX_CONNECTIONS=10
-```
+The enforcer does not send indiscriminately. Each evaluation runs a deterministic decision against the current proposal state:
 
-5. Install dependencies and build:
->>>>>>> bbbac2e (Add PostgreSQL adapter and admin endpoints)
+Condition	Action
+Proposal won, lost, or expired	Suppress — no action
+Reply received in last 72 hours	Suppress — recent reply detected
+Manual pause active	Suppress — until pause expires
+High-value ($15K+) at any stage	Route to human review
+High-value ($5K+) silent 72h+	Escalate to owner
+24h silence, no prior follow-up	Queue Follow-Up 1
+72h silence, follow-up 1 sent	Queue Follow-Up 2
+Proposal viewed, no reply	Prioritize — view intent detected
+Expiry within 2 days	Queue urgency follow-up
+7+ days unresolved	Queue call task to owner
 
-## Decision Engine
+Every decision is logged with confidence score, reason codes, and enforcement event. Full audit trail. No black box.
 
-<<<<<<< HEAD
-The enforcer doesn't send indiscriminately. Each evaluation runs a deterministic decision against the current proposal state:
-=======
-6. Run with `pm2`:
->>>>>>> bbbac2e (Add PostgreSQL adapter and admin endpoints)
+Enforcement Agents Collection
 
-| Condition | Action |
-|-----------|--------|
-| Proposal won, lost, or expired | Suppress — no action |
-| Reply received in last 72 hours | Suppress — recent reply detected |
-| Manual pause active | Suppress — until pause expires |
-| High-value ($15K+) at any stage | Route to human review |
-| High-value ($5K+) silent 72h+ | Escalate to owner |
-| 24h silence, no prior follow-up | Queue Follow-Up 1 |
-| 72h silence, follow-up 1 sent | Queue Follow-Up 2 |
-| Proposal viewed, no reply | Prioritize — view intent detected |
-| Expiry within 2 days | Queue urgency follow-up |
-| 7+ days unresolved | Queue call task to owner |
+This is part of the Revenue Enforcement Framework — open-source autonomous agents that make revenue leakage structurally impossible.
 
-Every decision is logged with confidence score, reason codes, and enforcement event. Full audit trail — no black box.
+Agent	Status	What It Enforces
+Enforcement Live Dashboard
+	✅ Live	Watch enforcement agents operate in real time
+Invoice Payment Enforcer
+	✅ Live	No invoice sits unpaid beyond terms
+Proposal Follow-Up Enforcer
+	✅ Live	No proposal dies in silence
+Scope Creep Detector
+	🔧 In Progress	No work without compensation agreement
+Revenue Leakage Counter
+	🔧 In Progress	See how fast your business leaks revenue
+Tech Stack
+n8n — Workflow automation and enforcement orchestration
+Claude Code — Follow-up message generation, view intent analysis, escalation drafting
+Fastify + TypeScript — Decision runtime with HMAC-authenticated API
+SQLite / PostgreSQL — Idempotent execution storage and proposal state persistence
+Zod — Contract validation on every inbound payload
+The Law
 
----
-
-<<<<<<< HEAD
-## Enforcement Agents Collection
-=======
-7. Put Nginx in front of the app and proxy to `127.0.0.1:8080`.
->>>>>>> bbbac2e (Add PostgreSQL adapter and admin endpoints)
-
-This is part of the **Revenue Enforcement Framework** — open-source autonomous agents that make revenue leakage structurally impossible.
-
-<<<<<<< HEAD
-| Agent | Status | What It Enforces |
-|-------|--------|-----------------|
-| [Enforcement Live Dashboard](https://github.com/ronfarley0317/enforcement-live-dashboard) | ✅ Live | Watch enforcement agents operate in real time |
-| [Invoice Payment Enforcer](https://github.com/ronfarley0317/collections-agent) | ✅ Live  | No invoice sits unpaid beyond terms |
-| [Proposal Follow-Up Enforcer](https://github.com/ronfarley0317/proposal-follow-up-enforcer) | ✅ Live | No proposal dies in silence |
-| [Scope Creep Detector](https://github.com/ronfarley0317/scope-creep-detector) | 🔧 In Progress | No work without compensation agreement |
-| [Revenue Leakage Counter](https://github.com/ronfarley0317/revenue-leakage-counter) | 🔧 In Progress | See how fast your business leaks revenue |
-=======
-- `/ready` returns `503` if persistence is unavailable or AI drafting is enabled without a provider key.
-- production startup rejects `DB_CLIENT=sqlite`
-- production startup rejects placeholder secrets by default
-- request logging masks email addresses and redacts auth/signature headers
-- persistence calls are timeout-guarded
-- duplicate requests remain idempotent through stored response replay
-- process restarts are safe because execution/idempotency/state are persisted
->>>>>>> bbbac2e (Add PostgreSQL adapter and admin endpoints)
-
----
-
-## Tech Stack
-
-- **n8n** — Workflow automation and enforcement orchestration
-- **Claude Code** — Follow-up message generation, view intent analysis, escalation drafting
-- **Fastify + TypeScript** — Decision runtime with HMAC-authenticated API
-- **SQLite** — Idempotent execution storage and proposal state persistence
-- **Zod** — Contract validation on every inbound payload
-
----
-
-## The Law
-
-> *"Any revenue that depends on human memory, discipline, or follow-up will leak at scale."*
+"Any revenue that depends on human memory, discipline, or follow-up will leak at scale."
 
 This agent makes forgotten proposal follow-up structurally impossible.
 
----
-
-## License
+License
 
 MIT
 
----
+Built by Physis Advisory
+ — Revenue Integrity Engineering
 
-**Built by [Physis Advisory](https://github.com/ronfarley0317) — Revenue Integrity Engineering**
+We don't help you make more money. We make it impossible to lose money you already earned.
 
-*We don't help you make more money. We make it impossible to lose money you already earned.*
+
+Use the GitHub web editor or local git:
+
+If you want the fastest fix, open `README.md`, replace everything with the cleaned version above, commit, and push.
+
+One blunt note: your current README also mixes “✅ Live” language with a repo that you are s
