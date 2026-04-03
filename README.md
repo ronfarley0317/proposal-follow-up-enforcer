@@ -96,11 +96,10 @@ npm run migrate
 npm run dev
 ```
 
-<<<<<<< HEAD
+HEAD
 Verify the service is live:
-=======
 Initialize the configured database:
->>>>>>> bbbac2e (Add PostgreSQL adapter and admin endpoints)
+bbbac2e (Add PostgreSQL adapter and admin endpoints)
 
 ```bash
 curl http://localhost:8080/health
