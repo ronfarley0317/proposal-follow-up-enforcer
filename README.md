@@ -35,27 +35,39 @@ graph LR
     J -->|YES| D
     J -->|NO| K[Escalate to Owner]
     K --> L[Context: value + open count + draft message]
+```
 
-How it works:
+### How it works
 
-Detection — Proposal creation event triggers the enforcement clock. The agent reads proposal value, contact, owner, and current follow-up stage. Previous enforcement state is checked so no duplicate actions fire.
-Intervention — At 24 hours of silence, Follow-Up 1 sends autonomously. At 72 hours, Follow-Up 2 sends with a different angle. View intent is weighted — a proposal opened three times with no reply gets prioritized differently than one never opened. High-value proposals ($5K+) that go silent past 72 hours escalate immediately.
-Escalation — At day 10, or when proposal value exceeds $15K, the agent packages full context — proposal value, open history, last outreach timestamp, and a pre-drafted message — and routes to the owner for one-click approval. The owner approves or adjusts. The agent sends. Nothing requires writing from scratch.
-Setup
-Local development
+**Detection** — Proposal creation event triggers the enforcement clock. The agent reads proposal value, contact, owner, and current follow-up stage. Previous enforcement state is checked so no duplicate actions fire.
+
+**Intervention** — At 24 hours of silence, Follow-Up 1 sends autonomously. At 72 hours, Follow-Up 2 sends with a different angle. View intent is weighted — a proposal opened three times with no reply gets prioritized differently than one never opened. High-value proposals ($5K+) that go silent past 72 hours escalate immediately.
+
+**Escalation** — At day 10, or when proposal value exceeds $15K, the agent packages full context — proposal value, open history, last outreach timestamp, and a pre-drafted message — and routes to the owner for one-click approval. The owner approves or adjusts. The agent sends. Nothing requires writing from scratch.
+
+---
+
+## Setup
+
+### Local development
 
 Clone and install:
 
+```bash
 git clone https://github.com/ronfarley0317/proposal-follow-up-enforcer.git
 cd proposal-follow-up-enforcer
 npm install
+```
 
 Create your environment file:
 
+```bash
 cp .env.example .env
+```
 
 Recommended local development settings:
 
+```env
 RUNTIME_BEARER_TOKEN=your_strong_token
 RUNTIME_HMAC_SECRET=your_strong_secret
 DB_CLIENT=sqlite
@@ -65,129 +77,157 @@ FOLLOW_UP_2_DELAY_HOURS=72
 CALL_TASK_DELAY_DAYS=7
 ESCALATION_VALUE_THRESHOLD=5000
 HIGH_VALUE_APPROVAL_THRESHOLD=15000
+```
 
 Initialize the configured database:
 
+```bash
 npm run migrate
+```
 
 Run locally:
 
+```bash
 npm run dev
+```
 
 Verify the service is live:
 
+```bash
 curl http://localhost:8080/health
 curl http://localhost:8080/ready
-n8n workflow setup
-Open your n8n instance
-Click Import Workflow
-Select workflows/proposal-follow-up-enforcer.json
-Update credentials in the workflow nodes — CRM webhook, SMTP or email provider, and n8n bearer token
-Activate the workflow
-Production-like PostgreSQL testing
+```
+
+### n8n workflow setup
+
+1. Open your n8n instance
+2. Click Import Workflow
+3. Select `workflows/proposal-follow-up-enforcer.json`
+4. Update credentials in the workflow nodes — CRM webhook, SMTP or email provider, and n8n bearer token
+5. Activate the workflow
+
+### Production-like PostgreSQL testing
 
 Use PostgreSQL when you want to test closer to production behavior:
 
+```env
 DB_CLIENT=postgres
 POSTGRES_URL=postgres://user:password@127.0.0.1:5432/proposal_follow_up_enforcer
 POSTGRES_SSL_MODE=disable
 POSTGRES_MAX_CONNECTIONS=10
-Production deployment
-Install Node.js 20+ and required build tools
-Copy the project to /var/www/proposal-follow-up-enforcer-runtime
-Create .env with real production secrets
-Set PostgreSQL as the production backend:
+```
+
+### Production deployment
+
+1. Install Node.js 20+ and required build tools
+2. Copy the project to `/var/www/proposal-follow-up-enforcer-runtime`
+3. Create `.env` with real production secrets
+4. Set PostgreSQL as the production backend:
+
+```env
 DB_CLIENT=postgres
 POSTGRES_URL=postgres://user:password@db-host:5432/proposal_follow_up_enforcer
 POSTGRES_SSL_MODE=require
 POSTGRES_MAX_CONNECTIONS=10
-Install dependencies and build
-Run with pm2
-Put Nginx in front of the app and proxy to 127.0.0.1:8080
+```
 
-Production rules:
+5. Install dependencies and build
+6. Run with pm2
+7. Put Nginx in front of the app and proxy to `127.0.0.1:8080`
 
-/ready returns 503 if persistence is unavailable or AI drafting is enabled without a provider key
-production startup rejects DB_CLIENT=sqlite
-production startup rejects placeholder secrets by default
-request logging masks email addresses and redacts auth/signature headers
-persistence calls are timeout-guarded
-duplicate requests remain idempotent through stored response replay
-process restarts are safe because execution, idempotency, and state are persisted
-Revenue Impact
-$375K–$750K in annual pipeline recovered, assuming 25–50% of silenced proposals are recovered
-100% of proposals receive systematic follow-up instead of depending on rep memory
-10-day maximum silence before human escalation fires with full context
-Typical payback period is 2–6 weeks at normal proposal volumes
+#### Production rules
 
-The math:
+- `/ready` returns 503 if persistence is unavailable or AI drafting is enabled without a provider key
+- production startup rejects `DB_CLIENT=sqlite`
+- production startup rejects placeholder secrets by default
+- request logging masks email addresses and redacts auth/signature headers
+- persistence calls are timeout-guarded
+- duplicate requests remain idempotent through stored response replay
+- process restarts are safe because execution, idempotency, and state are persisted
 
+---
+
+## Revenue Impact
+
+- $375K–$750K in annual pipeline recovered, assuming 25–50% of silenced proposals are recovered
+- 100% of proposals receive systematic follow-up instead of depending on rep memory
+- 10-day maximum silence before human escalation fires with full context
+- Typical payback period is 2–6 weeks at normal proposal volumes
+
+### The math
+
+```
 20 proposals/month
 × 50% not receiving systematic follow-up
 × $25,000 average proposal value
 × 25% lift from enforcement
 × 12 months
 = $750,000 annual leakage prevented
+```
 
 Adjust the inputs for your business. The formula holds.
 
-Decision Engine
+---
+
+## Decision Engine
 
 The enforcer does not send indiscriminately. Each evaluation runs a deterministic decision against the current proposal state:
 
-Condition	Action
-Proposal won, lost, or expired	Suppress — no action
-Reply received in last 72 hours	Suppress — recent reply detected
-Manual pause active	Suppress — until pause expires
-High-value ($15K+) at any stage	Route to human review
-High-value ($5K+) silent 72h+	Escalate to owner
-24h silence, no prior follow-up	Queue Follow-Up 1
-72h silence, follow-up 1 sent	Queue Follow-Up 2
-Proposal viewed, no reply	Prioritize — view intent detected
-Expiry within 2 days	Queue urgency follow-up
-7+ days unresolved	Queue call task to owner
+| Condition | Action |
+|-----------|--------|
+| Proposal won, lost, or expired | Suppress — no action |
+| Reply received in last 72 hours | Suppress — recent reply detected |
+| Manual pause active | Suppress — until pause expires |
+| High-value ($15K+) at any stage | Route to human review |
+| High-value ($5K+) silent 72h+ | Escalate to owner |
+| 24h silence, no prior follow-up | Queue Follow-Up 1 |
+| 72h silence, follow-up 1 sent | Queue Follow-Up 2 |
+| Proposal viewed, no reply | Prioritize — view intent detected |
+| Expiry within 2 days | Queue urgency follow-up |
+| 7+ days unresolved | Queue call task to owner |
 
 Every decision is logged with confidence score, reason codes, and enforcement event. Full audit trail. No black box.
 
-Enforcement Agents Collection
+---
+
+## Enforcement Agents Collection
 
 This is part of the Revenue Enforcement Framework — open-source autonomous agents that make revenue leakage structurally impossible.
 
-Agent	Status	What It Enforces
-Enforcement Live Dashboard
-	✅ Live	Watch enforcement agents operate in real time
-Invoice Payment Enforcer
-	✅ Live	No invoice sits unpaid beyond terms
-Proposal Follow-Up Enforcer
-	✅ Live	No proposal dies in silence
-Scope Creep Detector
-	🔧 In Progress	No work without compensation agreement
-Revenue Leakage Counter
-	🔧 In Progress	See how fast your business leaks revenue
-Tech Stack
-n8n — Workflow automation and enforcement orchestration
-Claude Code — Follow-up message generation, view intent analysis, escalation drafting
-Fastify + TypeScript — Decision runtime with HMAC-authenticated API
-SQLite / PostgreSQL — Idempotent execution storage and proposal state persistence
-Zod — Contract validation on every inbound payload
-The Law
+| Agent | Status | What It Enforces |
+|-------|--------|------------------|
+| [Enforcement Live Dashboard](https://github.com/ronfarley0317/enforcement-live-dashboard) | ✅ Live | Watch enforcement agents operate in real time |
+| [Invoice Payment Enforcer](https://github.com/ronfarley0317/invoice-payment-enforcer) | ✅ Live | No invoice sits unpaid beyond terms |
+| [Proposal Follow-Up Enforcer](https://github.com/ronfarley0317/proposal-follow-up-enforcer) | ✅ Live | No proposal dies in silence |
+| Scope Creep Detector | 🔧 In Progress | No work without compensation agreement |
+| Revenue Leakage Counter | 🔧 In Progress | See how fast your business leaks revenue |
+
+---
+
+## Tech Stack
+
+- **n8n** — Workflow automation and enforcement orchestration
+- **Claude Code** — Follow-up message generation, view intent analysis, escalation drafting
+- **Fastify + TypeScript** — Decision runtime with HMAC-authenticated API
+- **SQLite / PostgreSQL** — Idempotent execution storage and proposal state persistence
+- **Zod** — Contract validation on every inbound payload
+
+---
+
+## The Law
 
 "Any revenue that depends on human memory, discipline, or follow-up will leak at scale."
 
 This agent makes forgotten proposal follow-up structurally impossible.
 
-License
+---
+
+## License
 
 MIT
 
-Built by Physis Advisory
- — Revenue Integrity Engineering
+---
+
+**Built by [Physis Advisory](https://physisadvisory.com) — Revenue Integrity Engineering**
 
 We don't help you make more money. We make it impossible to lose money you already earned.
-
-
-Use the GitHub web editor or local git:
-
-If you want the fastest fix, open `README.md`, replace everything with the cleaned version above, commit, and push.
-
-One blunt note: your current README also mixes “✅ Live” language with a repo that you are s
