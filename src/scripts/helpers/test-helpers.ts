@@ -80,7 +80,7 @@ export async function createTestHarness(overrides: Partial<Record<string, string
   };
 }
 
-export function buildValidRequest(now = new Date("2026-04-02T14:00:00.000Z")): RuntimeRequest {
+export function buildValidRequest(now = new Date()): RuntimeRequest {
   const sentAt = new Date(now.getTime() - 30 * 60 * 60 * 1000).toISOString();
   const lastOutreachAt = new Date(now.getTime() - 30 * 60 * 60 * 1000).toISOString();
 
@@ -181,6 +181,32 @@ export async function injectSignedRequest(params: {
       "x-orchestrator-workflow-id": "wf_test_001",
       "x-timestamp": timestamp,
       "x-signature": signPayload(bodyString, params.harness.config, timestamp),
+      ...(params.headers ?? {})
+    }
+  });
+}
+
+export async function injectSignedAdminRequest(params: {
+  harness: TestHarness;
+  method?: "GET";
+  url: string;
+  headers?: Record<string, string>;
+}): Promise<LightMyRequestResponse> {
+  const payload = "";
+  const timestamp = new Date().toISOString();
+
+  return params.harness.app.inject({
+    method: params.method ?? "GET",
+    url: params.url,
+    payload,
+    headers: {
+      authorization: `Bearer ${params.harness.config.RUNTIME_BEARER_TOKEN}`,
+      "x-request-id": "req_admin_001",
+      "x-idempotency-key": "admin:lookup",
+      "x-orchestrator": "n8n",
+      "x-orchestrator-workflow-id": "wf_admin_001",
+      "x-timestamp": timestamp,
+      "x-signature": signPayload(payload, params.harness.config, timestamp),
       ...(params.headers ?? {})
     }
   });

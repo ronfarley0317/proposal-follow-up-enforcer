@@ -169,6 +169,7 @@ async function main() {
 
       assert.equal(noAiResponse.response_type, aiResponse.response_type);
       assert.equal(noAiResponse.decision.decision_code, aiResponse.decision.decision_code);
+      assert.deepEqual(noAiResponse.meta.message_drafts, aiResponse.meta.message_drafts);
     } finally {
       await noAiHarness.cleanup();
       await aiHarness.cleanup();

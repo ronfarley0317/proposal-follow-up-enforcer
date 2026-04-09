@@ -64,7 +64,29 @@ export const runtimeResponseSchema = z.object({
   errors: z.array(responseErrorSchema),
   meta: z.object({
     terminal: z.boolean(),
-    dry_run: z.boolean().optional()
+    dry_run: z.boolean().optional(),
+    risk_score: z.object({
+      score: z.number().int().min(0).max(100),
+      level: z.enum(["low", "medium", "high"]),
+      factors: z.array(z.string().min(1)).min(1)
+    }).optional(),
+    escalation_summary: z.object({
+      headline: z.string().min(1),
+      owner_brief: z.string().min(1),
+      key_facts: z.array(z.string().min(1)).min(1),
+      recommended_next_step: z.string().min(1)
+    }).optional(),
+    message_drafts: z.object({
+      source: z.enum(["deterministic_template"]),
+      action_type: z.string().min(1),
+      recommended_variant_id: z.string().min(1),
+      variants: z.array(z.object({
+        variant_id: z.string().min(1),
+        tone: z.enum(["direct", "warm", "urgent"]),
+        subject: z.string().min(1),
+        body: z.string().min(1)
+      })).min(1)
+    }).optional()
   })
 });
 

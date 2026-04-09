@@ -15,6 +15,9 @@ export function buildDecisionPolicy(config: AppConfig): DecisionEnginePolicy {
     expiryUrgencyDays: config.EXPIRY_URGENCY_DAYS,
     lowConfidenceThreshold: config.LOW_CONFIDENCE_THRESHOLD,
     viewIntentPriorityWindowHours: config.VIEW_INTENT_PRIORITY_WINDOW_HOURS,
+    riskScoreHighThreshold: config.RISK_SCORE_HIGH_THRESHOLD,
+    riskScoreMediumThreshold: config.RISK_SCORE_MEDIUM_THRESHOLD,
+    highRiskServiceCategories: config.HIGH_RISK_SERVICE_CATEGORIES,
     sensitiveSegments: config.SENSITIVE_SEGMENTS
   };
 }

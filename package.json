@@ -15,6 +15,7 @@
     "test:scenarios": "tsx src/scripts/test-scenarios.ts",
     "test:state": "tsx src/scripts/test-state-transitions.ts",
     "test:failures": "tsx src/scripts/test-failure-modes.ts",
+    "test:client-smoke": "tsx src/scripts/test-client-deployment-smoke.ts",
     "test:v1": "tsx src/scripts/test-contracts.ts && tsx src/scripts/test-event-schema.ts && tsx src/scripts/test-scenarios.ts && tsx src/scripts/test-state-transitions.ts && tsx src/scripts/test-failure-modes.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",

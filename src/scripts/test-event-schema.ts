@@ -7,6 +7,20 @@ import { buildDashboardEvents } from "../events/builder.js";
 import type { RuntimeRequest } from "../contracts/runtime-request.js";
 import type { DecisionResult } from "../decision-engine/types.js";
 
+const derivedFixture = {
+  nowIso: "2026-04-02T14:00:00.000Z",
+  hoursSinceSent: 72,
+  hoursSinceLastOutreach: 48,
+  hoursSinceLastResponse: null,
+  hoursSinceLastView: 12,
+  daysToExpiry: 5,
+  touchCount: 1,
+  recentViewIntent: true,
+  silenceHours: 48,
+  duplicateDecisionDetected: false,
+  replyClassification: null
+} as const;
+
 const request: RuntimeRequest = {
   api_version: "1.0",
   request_id: "req_test_001",
@@ -83,7 +97,8 @@ const decisionFixtures: DecisionResult[] = [
     humanReviewRequired: false,
     escalationRequired: false,
     errors: [],
-    terminal: false
+    terminal: false,
+    derived: derivedFixture
   },
   {
     responseType: "suppressed",
@@ -101,7 +116,8 @@ const decisionFixtures: DecisionResult[] = [
     humanReviewRequired: false,
     escalationRequired: false,
     errors: [],
-    terminal: false
+    terminal: false,
+    derived: derivedFixture
   },
   {
     responseType: "escalated",
@@ -119,7 +135,8 @@ const decisionFixtures: DecisionResult[] = [
     humanReviewRequired: true,
     escalationRequired: true,
     errors: [],
-    terminal: false
+    terminal: false,
+    derived: derivedFixture
   },
   {
     responseType: "pending_human",
@@ -137,7 +154,8 @@ const decisionFixtures: DecisionResult[] = [
     humanReviewRequired: true,
     escalationRequired: false,
     errors: [],
-    terminal: false
+    terminal: false,
+    derived: derivedFixture
   },
   {
     responseType: "failed",
@@ -162,7 +180,8 @@ const decisionFixtures: DecisionResult[] = [
         field: "inputs.normalized_payload.sent_at"
       }
     ],
-    terminal: true
+    terminal: true,
+    derived: derivedFixture
   }
 ];
 
@@ -212,6 +231,23 @@ async function main() {
       executionId,
       result: decisionResult
     });
+
+    if (decisionResult.responseType === "escalated" || decisionResult.responseType === "pending_human") {
+      if (!response.meta.escalation_summary) {
+        throw new Error(`Expected escalation summary for ${decisionResult.responseType}`);
+      }
+    }
+
+    if (!response.meta.risk_score) {
+      throw new Error(`Expected risk score for ${decisionResult.responseType}`);
+    }
+
+    if (decisionResult.responseType === "success" || decisionResult.responseType === "suppressed" || decisionResult.responseType === "failed") {
+      if (response.meta.escalation_summary) {
+        throw new Error(`Unexpected escalation summary for ${decisionResult.responseType}`);
+      }
+    }
+
     const events = buildDashboardEvents({
       config,
       request,
@@ -237,4 +273,3 @@ main().catch((error) => {
   }
   process.exit(1);
 });
-
