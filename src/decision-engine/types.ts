@@ -1,4 +1,5 @@
 import type { RuntimeRequest, RuntimeNormalizedPayload } from "../contracts/runtime-request.js";
+import type { ReplyClassificationResult } from "./reply-classification.js";
 import type { RuntimeResponse } from "../contracts/runtime-response.js";
 import type { StoredProposalState } from "../persistence/types.js";
 
@@ -18,6 +19,9 @@ export type DecisionEnginePolicy = {
   expiryUrgencyDays: number;
   lowConfidenceThreshold: number;
   viewIntentPriorityWindowHours: number;
+  riskScoreHighThreshold: number;
+  riskScoreMediumThreshold: number;
+  highRiskServiceCategories: string[];
   sensitiveSegments: string[];
 };
 
@@ -32,6 +36,7 @@ export type DerivedTiming = {
   recentViewIntent: boolean;
   silenceHours: number;
   duplicateDecisionDetected: boolean;
+  replyClassification: ReplyClassificationResult | null;
 };
 
 export type DecisionResult = {
@@ -51,6 +56,7 @@ export type DecisionResult = {
   escalationRequired: boolean;
   errors: RuntimeResponse["errors"];
   terminal: boolean;
+  derived: DerivedTiming;
 };
 
 export type DecisionContext = {

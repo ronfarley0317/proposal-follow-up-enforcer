@@ -4,9 +4,10 @@ import { buildValidRequest, createTestHarness, injectSignedRequest, parseValidat
 
 async function main() {
   const harness = await createTestHarness();
+  const now = new Date();
 
   try {
-    const wonRequest = buildValidRequest();
+    const wonRequest = buildValidRequest(now);
     wonRequest.idempotency_key = "proposal_123:won-terminal";
     wonRequest.inputs.normalized_payload.proposal_status = "won";
     const wonResponse = parseValidatedRuntimeResponse(await injectSignedRequest({ harness, body: wonRequest }));
@@ -18,11 +19,15 @@ async function main() {
     assert.equal(terminalState.latestKnownProposalStatus, "won");
     assert.equal(terminalState.lastDecisionCode, "SUPPRESS_TERMINAL_STATUS");
 
-    const reopenedRequest = buildValidRequest();
+    const reopenedRequest = buildValidRequest(now);
     reopenedRequest.idempotency_key = "proposal_123:reopened";
     reopenedRequest.inputs.normalized_payload.proposal_status = "sent";
-    reopenedRequest.inputs.normalized_payload.sent_at = "2026-04-01T08:00:00.000Z";
-    reopenedRequest.inputs.normalized_payload.last_outreach_at = "2026-04-01T08:00:00.000Z";
+    reopenedRequest.inputs.normalized_payload.sent_at = new Date(
+      now.getTime() - 30 * 60 * 60 * 1000
+    ).toISOString();
+    reopenedRequest.inputs.normalized_payload.last_outreach_at = new Date(
+      now.getTime() - 30 * 60 * 60 * 1000
+    ).toISOString();
     const reopenedResponse = parseValidatedRuntimeResponse(
       await injectSignedRequest({ harness, body: reopenedRequest })
     );
@@ -33,24 +38,32 @@ async function main() {
     assert.equal(reopenedState.terminalState, false);
     assert.equal(reopenedState.latestKnownProposalStatus, "sent");
 
-    const firstSuccessRequest = buildValidRequest();
+    const firstSuccessRequest = buildValidRequest(now);
     firstSuccessRequest.idempotency_key = "proposal_456:first-success";
     firstSuccessRequest.entity.entity_id = "proposal_456";
     firstSuccessRequest.inputs.normalized_payload.proposal_id = "proposal_456";
-    firstSuccessRequest.inputs.normalized_payload.sent_at = "2026-04-01T08:00:00.000Z";
-    firstSuccessRequest.inputs.normalized_payload.last_outreach_at = "2026-04-01T08:00:00.000Z";
+    firstSuccessRequest.inputs.normalized_payload.sent_at = new Date(
+      now.getTime() - 30 * 60 * 60 * 1000
+    ).toISOString();
+    firstSuccessRequest.inputs.normalized_payload.last_outreach_at = new Date(
+      now.getTime() - 30 * 60 * 60 * 1000
+    ).toISOString();
     const firstSuccessResponse = parseValidatedRuntimeResponse(
       await injectSignedRequest({ harness, body: firstSuccessRequest })
     );
     assert.equal(firstSuccessResponse.response_type, "success");
     assert.equal(firstSuccessResponse.decision.decision_code, "QUEUE_FOLLOW_UP_1");
 
-    const duplicateSuccessRequest = buildValidRequest();
+    const duplicateSuccessRequest = buildValidRequest(now);
     duplicateSuccessRequest.idempotency_key = "proposal_456:repeat-success";
     duplicateSuccessRequest.entity.entity_id = "proposal_456";
     duplicateSuccessRequest.inputs.normalized_payload.proposal_id = "proposal_456";
-    duplicateSuccessRequest.inputs.normalized_payload.sent_at = "2026-04-01T08:00:00.000Z";
-    duplicateSuccessRequest.inputs.normalized_payload.last_outreach_at = "2026-04-01T08:00:00.000Z";
+    duplicateSuccessRequest.inputs.normalized_payload.sent_at = new Date(
+      now.getTime() - 30 * 60 * 60 * 1000
+    ).toISOString();
+    duplicateSuccessRequest.inputs.normalized_payload.last_outreach_at = new Date(
+      now.getTime() - 30 * 60 * 60 * 1000
+    ).toISOString();
     const duplicateSuccessResponse = parseValidatedRuntimeResponse(
       await injectSignedRequest({ harness, body: duplicateSuccessRequest })
     );
@@ -62,14 +75,18 @@ async function main() {
     assert.equal(duplicateState.currentFollowUpStage, "stage_1");
     assert.equal(duplicateState.touchCounter, 1);
 
-    const pendingHumanRequest = buildValidRequest();
+    const pendingHumanRequest = buildValidRequest(now);
     pendingHumanRequest.idempotency_key = "proposal_789:pending-human";
     pendingHumanRequest.entity.entity_id = "proposal_789";
     pendingHumanRequest.inputs.normalized_payload.proposal_id = "proposal_789";
     pendingHumanRequest.inputs.normalized_payload.follow_up_stage = "stage_1";
     pendingHumanRequest.inputs.normalized_payload.proposal_value = 20000;
-    pendingHumanRequest.inputs.normalized_payload.sent_at = "2026-04-01T08:00:00.000Z";
-    pendingHumanRequest.inputs.normalized_payload.last_outreach_at = "2026-04-01T08:00:00.000Z";
+    pendingHumanRequest.inputs.normalized_payload.sent_at = new Date(
+      now.getTime() - 48 * 60 * 60 * 1000
+    ).toISOString();
+    pendingHumanRequest.inputs.normalized_payload.last_outreach_at = new Date(
+      now.getTime() - 48 * 60 * 60 * 1000
+    ).toISOString();
     const pendingHumanResponse = parseValidatedRuntimeResponse(
       await injectSignedRequest({ harness, body: pendingHumanRequest })
     );
@@ -81,14 +98,18 @@ async function main() {
     assert.equal(pendingHumanState.touchCounter, 1);
     assert.equal(pendingHumanState.lastEscalationStatus, "pending_human");
 
-    const escalatedRequest = buildValidRequest();
+    const escalatedRequest = buildValidRequest(now);
     escalatedRequest.idempotency_key = "proposal_999:escalated";
     escalatedRequest.entity.entity_id = "proposal_999";
     escalatedRequest.inputs.normalized_payload.proposal_id = "proposal_999";
     escalatedRequest.inputs.normalized_payload.follow_up_stage = "stage_2";
     escalatedRequest.inputs.normalized_payload.proposal_value = 8000;
-    escalatedRequest.inputs.normalized_payload.sent_at = "2026-03-29T08:00:00.000Z";
-    escalatedRequest.inputs.normalized_payload.last_outreach_at = "2026-03-29T08:00:00.000Z";
+    escalatedRequest.inputs.normalized_payload.sent_at = new Date(
+      now.getTime() - 96 * 60 * 60 * 1000
+    ).toISOString();
+    escalatedRequest.inputs.normalized_payload.last_outreach_at = new Date(
+      now.getTime() - 96 * 60 * 60 * 1000
+    ).toISOString();
     const escalatedResponse = parseValidatedRuntimeResponse(
       await injectSignedRequest({ harness, body: escalatedRequest })
     );

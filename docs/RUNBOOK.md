@@ -22,6 +22,7 @@ cd /var/www/proposal-follow-up-enforcer-runtime
 npm ci
 npm run build
 npm run migrate
+npm run test:client-smoke
 ```
 
 5. Start using one of:
@@ -42,6 +43,7 @@ sudo systemctl start proposal-follow-up-enforcer-runtime
 - Readiness: `GET /ready`
 - Execution lookup: `GET /api/v1/executions/:executionId`
 - Proposal state lookup: `GET /api/v1/proposals/:proposalId/state`
+- Proposal diagnostics lookup: `GET /api/v1/proposals/:proposalId/diagnostics`
 - Idempotency lookup: `GET /api/v1/idempotency/:idempotencyKey`
 
 Expected:
@@ -78,6 +80,7 @@ Expected:
 
 ### Inspecting Stored State
 - use `/api/v1/proposals/:proposalId/state` to verify lifecycle stage, touch count, and terminal state
+- use `/api/v1/proposals/:proposalId/diagnostics` to answer “why didn’t this proposal get followed up?”
 - use `/api/v1/executions/:executionId` to inspect stored runtime response
 - use `/api/v1/idempotency/:idempotencyKey` to confirm replay/conflict behavior
 

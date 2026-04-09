@@ -55,8 +55,37 @@ const normalizedPayloadSchema = z.object({
   segment: z.string().min(1).optional(),
   competitor_flag: z.boolean().optional(),
   sms_opt_in: z.boolean().optional(),
-  phone_number: z.string().min(1).optional()
+  phone_number: z.string().min(1).optional(),
+  last_reply_text: z.string().min(1).optional(),
+  last_reply_channel: z.string().min(1).optional(),
+  reply_classification: z.enum(["interested", "objection", "delay", "lost", "closed"]).optional(),
+  reply_classification_confidence: z.number().min(0).max(1).optional()
 }).passthrough();
+
+const normalizationHintsSchema = z.object({
+  field_aliases: z.record(z.array(z.string().min(1)).min(1)).optional()
+}).optional();
+
+export const runtimeIncomingRequestSchema = z.object({
+  api_version: z.string().min(1),
+  request_id: z.string().min(1),
+  idempotency_key: z.string().min(1),
+  sent_at: z.string().datetime(),
+  orchestrator: orchestratorSchema,
+  agent: agentSchema,
+  trigger: triggerSchema,
+  entity: entitySchema,
+  inputs: z.object({
+    normalized_payload: normalizedPayloadSchema.partial().optional(),
+    raw_payload: z.record(z.unknown()).optional(),
+    normalization_hints: normalizationHintsSchema
+  }),
+  options: z.object({
+    dry_run: z.boolean().optional(),
+    require_dashboard_events: z.boolean().optional(),
+    response_detail: z.enum(["minimal", "full"]).optional()
+  }).optional()
+});
 
 export const runtimeRequestSchema = z.object({
   api_version: z.string().min(1),
@@ -79,6 +108,8 @@ export const runtimeRequestSchema = z.object({
 
 export type RuntimeRequest = z.infer<typeof runtimeRequestSchema>;
 export type RuntimeNormalizedPayload = z.infer<typeof normalizedPayloadSchema>;
+export type RuntimeIncomingRequest = z.infer<typeof runtimeIncomingRequestSchema>;
+export type RuntimeNormalizationHints = NonNullable<RuntimeIncomingRequest["inputs"]["normalization_hints"]>;
 
 export function isDryRunRequest(request: RuntimeRequest) {
   return request.options?.dry_run === true;

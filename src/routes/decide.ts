@@ -2,7 +2,8 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import crypto from "node:crypto";
 
 import type { AppConfig } from "../config.js";
-import { isDryRunRequest, runtimeRequestSchema } from "../contracts/runtime-request.js";
+import { normalizeRuntimeRequest } from "../contracts/normalize-runtime-request.js";
+import { isDryRunRequest } from "../contracts/runtime-request.js";
 import { evaluateProposalDecision } from "../decision-engine/evaluate.js";
 import { buildDecisionPolicy } from "../decision-engine/policy.js";
 import { classifyValidationIssues, sendError } from "../errors.js";
@@ -19,7 +20,7 @@ export async function registerDecideRoute(
   persistence: PersistenceAdapter
 ) {
   app.post("/api/v1/decide", async (request: FastifyRequest, reply: FastifyReply) => {
-    const parsed = runtimeRequestSchema.safeParse(request.body);
+    const parsed = normalizeRuntimeRequest(request.body);
 
     if (!parsed.success) {
       const validationError = classifyValidationIssues(parsed.error.issues);

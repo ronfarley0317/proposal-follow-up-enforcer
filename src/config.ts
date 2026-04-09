@@ -51,6 +51,17 @@ const configSchema = z.object({
   EXPIRY_URGENCY_DAYS: z.coerce.number().int().min(1).default(2),
   LOW_CONFIDENCE_THRESHOLD: z.coerce.number().min(0).max(1).default(0.6),
   VIEW_INTENT_PRIORITY_WINDOW_HOURS: z.coerce.number().int().min(1).default(24),
+  RISK_SCORE_HIGH_THRESHOLD: z.coerce.number().int().min(1).max(100).default(70),
+  RISK_SCORE_MEDIUM_THRESHOLD: z.coerce.number().int().min(1).max(100).default(40),
+  HIGH_RISK_SERVICE_CATEGORIES: z
+    .string()
+    .default("roofing,hvac,foundation")
+    .transform((value) =>
+      value
+        .split(",")
+        .map((entry) => entry.trim().toLowerCase())
+        .filter(Boolean)
+    ),
   SENSITIVE_SEGMENTS: z
     .string()
     .default("vip,strategic,sensitive")

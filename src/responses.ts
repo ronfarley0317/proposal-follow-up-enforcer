@@ -3,6 +3,10 @@ import type { EnforcementEvent } from "./contracts/enforcement-event.js";
 import type { RuntimeRequest } from "./contracts/runtime-request.js";
 import { runtimeResponseSchema, type RuntimeResponse, type RuntimeResponseType } from "./contracts/runtime-response.js";
 import type { DecisionResult } from "./decision-engine/types.js";
+import { buildDecisionPolicy } from "./decision-engine/policy.js";
+import { generateRiskScore } from "./decision-engine/risk-score.js";
+import { generateMessageDrafts } from "./drafting/generate.js";
+import { generateEscalationSummary } from "./escalation/generate-summary.js";
 import { buildDashboardEvents } from "./events/builder.js";
 
 type BuildStubResponseInput = {
@@ -121,7 +125,20 @@ export function buildIdempotencyConflictResponse(input: Omit<BuildStubResponseIn
       humanReviewRequired: false,
       escalationRequired: false,
       errors: response.errors,
-      terminal: true
+      terminal: true,
+      derived: {
+        nowIso: new Date(0).toISOString(),
+        hoursSinceSent: 0,
+        hoursSinceLastOutreach: 0,
+        hoursSinceLastResponse: null,
+        hoursSinceLastView: null,
+        daysToExpiry: null,
+        touchCount: 0,
+        recentViewIntent: false,
+        silenceHours: 0,
+        duplicateDecisionDetected: false,
+        replyClassification: null
+      }
     },
     executionId: input.executionId
   });
@@ -192,6 +209,24 @@ export function buildRuntimeResponseFromDecision(params: {
     response,
     decisionResult: params.result,
     executionId: params.executionId
+  });
+
+  response.meta.message_drafts = generateMessageDrafts({
+    request: params.request,
+    response
+  });
+
+  response.meta.risk_score = generateRiskScore({
+    policy: buildDecisionPolicy(params.config),
+    derived: params.result.derived,
+    context: {
+      payload: params.request.inputs.normalized_payload
+    }
+  });
+
+  response.meta.escalation_summary = generateEscalationSummary({
+    request: params.request,
+    response
   });
 
   return runtimeResponseSchema.parse(response);

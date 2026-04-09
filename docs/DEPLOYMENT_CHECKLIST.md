@@ -8,6 +8,7 @@
 - [ ] `npm run build` completed successfully
 - [ ] `npm run migrate` completed successfully
 - [ ] `npm run test:v1` completed successfully in pre-prod or staging-like environment
+- [ ] `npm run test:client-smoke` completed successfully
 - [ ] `/health` returns `200`
 - [ ] `/ready` returns `200`
 - [ ] PM2 or systemd service installed
@@ -18,4 +19,5 @@
 - [ ] Persistence survives restart
 - [ ] Valid signed request tested end-to-end
 - [ ] Idempotent retry tested
+- [ ] Proposal diagnostics endpoint tested
 - [ ] Conflicting payload with same idempotency key tested

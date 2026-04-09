@@ -1,6 +1,7 @@
 import type { RuntimeNormalizedPayload, RuntimeRequest } from "../contracts/runtime-request.js";
 import type { StoredProposalState } from "../persistence/types.js";
 import { shouldSuppressDuplicateAction } from "../state/transition.js";
+import { classifyReply } from "./reply-classification.js";
 import type { DecisionContext, DecisionEnginePolicy, DecisionResult, DerivedTiming } from "./types.js";
 
 const TERMINAL_STATUSES = new Set(["won", "lost", "expired", "paused"]);
@@ -68,7 +69,8 @@ function evaluateFailure(context: DecisionContext): DecisionResult | null {
           field: "inputs.normalized_payload.sent_at"
         }
       ],
-      terminal: true
+      terminal: true,
+      derived
     });
   }
 
@@ -100,7 +102,8 @@ function evaluateFailure(context: DecisionContext): DecisionResult | null {
           field: "inputs.normalized_payload.days_to_expiry"
         }
       ],
-      terminal: true
+      terminal: true,
+      derived
     });
   }
 
@@ -129,18 +132,38 @@ function evaluateTerminalSuppression(context: DecisionContext): DecisionResult |
     humanReviewRequired: false,
     escalationRequired: false,
     errors: [],
-    terminal: normalizedStatus !== "paused"
+    terminal: normalizedStatus !== "paused",
+    derived: context.derived
   });
 }
 
 function evaluateHardSuppression(context: DecisionContext): DecisionResult | null {
   const { payload, now, derived, policy } = context;
 
+  if (derived.replyClassification?.classification === "closed") {
+    return buildSuppressedResult(
+      "SUPPRESS_REPLY_CLOSED",
+      "Suppress follow-up because the latest reply indicates the proposal is moving forward",
+      ["REPLY_CLASSIFIED", "REPLY_CLOSED"],
+      derived
+    );
+  }
+
+  if (derived.replyClassification?.classification === "lost") {
+    return buildSuppressedResult(
+      "SUPPRESS_REPLY_LOST",
+      "Suppress follow-up because the latest reply indicates the opportunity is lost",
+      ["REPLY_CLASSIFIED", "REPLY_LOST"],
+      derived
+    );
+  }
+
   if (payload.do_not_contact === true) {
     return buildSuppressedResult(
       "SUPPRESS_DO_NOT_CONTACT",
       "Suppress follow-up because contact is marked do not contact",
-      ["DO_NOT_CONTACT"]
+      ["DO_NOT_CONTACT"],
+      derived
     );
   }
 
@@ -150,7 +173,8 @@ function evaluateHardSuppression(context: DecisionContext): DecisionResult | nul
       return buildSuppressedResult(
         "SUPPRESS_MANUAL_PAUSE",
         "Suppress follow-up because proposal is manually paused",
-        ["MANUAL_PAUSE_ACTIVE"]
+        ["MANUAL_PAUSE_ACTIVE"],
+        derived
       );
     }
   }
@@ -159,10 +183,47 @@ function evaluateHardSuppression(context: DecisionContext): DecisionResult | nul
     derived.hoursSinceLastResponse !== null &&
     derived.hoursSinceLastResponse <= policy.recentReplySuppressionHours
   ) {
+    const replyClassification = derived.replyClassification?.classification;
+    const replyConfidence = derived.replyClassification?.confidence ?? 0.72;
+
+    if (replyClassification === "interested") {
+      return buildPendingHumanResult(
+        "REVIEW_REPLY_INTERESTED",
+        "Require human follow-up because the latest reply indicates active interest",
+        ["RECENT_REPLY_DETECTED", "REPLY_INTERESTED"],
+        payload.owner_email,
+        Math.max(0.72, replyConfidence),
+        derived
+      );
+    }
+
+    if (replyClassification === "objection") {
+      return buildPendingHumanResult(
+        "REVIEW_REPLY_OBJECTION",
+        "Require human follow-up because the latest reply contains an objection",
+        ["RECENT_REPLY_DETECTED", "REPLY_OBJECTION"],
+        payload.owner_email,
+        Math.max(0.72, replyConfidence),
+        derived
+      );
+    }
+
+    if (replyClassification === "delay") {
+      return buildSuppressedResult(
+        "SUPPRESS_REPLY_DELAY",
+        "Suppress follow-up because the latest reply asks to revisit later",
+        ["RECENT_REPLY_DETECTED", "REPLY_DELAY"],
+        derived
+      );
+    }
+
     return buildSuppressedResult(
       "SUPPRESS_RECENT_REPLY",
       "Suppress follow-up because a recent prospect reply was detected",
-      ["RECENT_REPLY_DETECTED"]
+      replyClassification
+        ? ["RECENT_REPLY_DETECTED", `REPLY_${String(replyClassification).toUpperCase()}`]
+        : ["RECENT_REPLY_DETECTED"],
+      derived
     );
   }
 
@@ -170,7 +231,8 @@ function evaluateHardSuppression(context: DecisionContext): DecisionResult | nul
     return buildSuppressedResult(
       "SUPPRESS_RECENT_OUTREACH",
       "Suppress follow-up because outreach is still inside cooldown",
-      ["RECENT_OWNER_OUTREACH", "COOLDOWN_ACTIVE"]
+      ["RECENT_OWNER_OUTREACH", "COOLDOWN_ACTIVE"],
+      derived
     );
   }
 
@@ -199,7 +261,8 @@ function evaluateEscalation(context: DecisionContext): DecisionResult | null {
       humanReviewRequired: true,
       escalationRequired: true,
       errors: [],
-      terminal: false
+      terminal: false,
+      derived
     });
   }
 
@@ -218,7 +281,9 @@ function evaluateHumanReview(context: DecisionContext): DecisionResult | null {
       "REVIEW_HIGH_VALUE_PROPOSAL",
       "Require human review because proposal value exceeds approval threshold",
       ["APPROVAL_THRESHOLD_EXCEEDED", "HIGH_VALUE_PROPOSAL"],
-      payload.owner_email
+      payload.owner_email,
+      0.55,
+      context.derived
     );
   }
 
@@ -227,7 +292,9 @@ function evaluateHumanReview(context: DecisionContext): DecisionResult | null {
       "REVIEW_SENSITIVE_PROPOSAL",
       "Require human review because proposal is marked sensitive",
       sensitiveSegment ? ["SENSITIVE_SEGMENT"] : ["COMPETITOR_FLAG"],
-      payload.owner_email
+      payload.owner_email,
+      0.55,
+      context.derived
     );
   }
 
@@ -237,7 +304,8 @@ function evaluateHumanReview(context: DecisionContext): DecisionResult | null {
       "Require human review because confidence is below threshold",
       ["LOW_CONFIDENCE"],
       payload.owner_email,
-      confidence
+      confidence,
+      context.derived
     );
   }
 
@@ -252,7 +320,8 @@ function evaluateCadence(context: DecisionContext): DecisionResult {
     return buildSuppressedResult(
       "SUPPRESS_DUPLICATE_ACTION",
       "Suppress follow-up because the same enforcement action was already recorded",
-      ["DUPLICATE_ACTION_PREVENTED"]
+      ["DUPLICATE_ACTION_PREVENTED"],
+      derived
     );
   }
 
@@ -268,7 +337,8 @@ function evaluateCadence(context: DecisionContext): DecisionResult {
         : ["EXPIRY_URGENCY"],
       "urgency_follow_up",
       "email",
-      payload.contact_email
+      payload.contact_email,
+      derived
     );
   }
 
@@ -280,7 +350,8 @@ function evaluateCadence(context: DecisionContext): DecisionResult {
         ["RECENT_VIEW_INTENT", "FOLLOW_UP_STALLED"],
         "follow_up_1_email",
         "email",
-        payload.contact_email
+        payload.contact_email,
+        derived
       );
     }
 
@@ -291,7 +362,8 @@ function evaluateCadence(context: DecisionContext): DecisionResult {
         ["RECENT_VIEW_INTENT", "FOLLOW_UP_STALLED", "SECOND_TOUCH"],
         "follow_up_2_email",
         "email",
-        payload.contact_email
+        payload.contact_email,
+        derived
       );
     }
   }
@@ -303,7 +375,8 @@ function evaluateCadence(context: DecisionContext): DecisionResult {
       ["CALL_TASK_THRESHOLD_REACHED"],
       "call_task",
       "internal_task",
-      payload.owner_email
+      payload.owner_email,
+      derived
     );
   }
 
@@ -314,7 +387,8 @@ function evaluateCadence(context: DecisionContext): DecisionResult {
       ["FOLLOW_UP_2_WINDOW_REACHED"],
       "follow_up_2_email",
       "email",
-      payload.contact_email
+      payload.contact_email,
+      derived
     );
   }
 
@@ -325,7 +399,8 @@ function evaluateCadence(context: DecisionContext): DecisionResult {
       ["AUTOMATED_EMAIL_LIMIT_REACHED", "OWNER_NOTIFICATION_REQUIRED"],
       "owner_notification",
       "internal_notification",
-      payload.owner_email
+      payload.owner_email,
+      derived
     );
   }
 
@@ -336,14 +411,16 @@ function evaluateCadence(context: DecisionContext): DecisionResult {
       ["FOLLOW_UP_1_WINDOW_REACHED"],
       "follow_up_1_email",
       "email",
-      payload.contact_email
+      payload.contact_email,
+      derived
     );
   }
 
   return buildSuppressedResult(
     "SUPPRESS_NO_ACTION_DUE",
     "Suppress follow-up because no cadence action is currently due",
-    ["NO_ACTION_DUE"]
+    ["NO_ACTION_DUE"],
+    derived
   );
 }
 
@@ -394,7 +471,8 @@ function deriveTiming(
       hoursSinceLastView <= policy.viewIntentPriorityWindowHours &&
       hoursSinceLastOutreach > policy.recentOutreachSuppressionHours,
     silenceHours,
-    duplicateDecisionDetected
+    duplicateDecisionDetected,
+    replyClassification: classifyReply(payload)
   };
 }
 
@@ -453,7 +531,8 @@ function computeConfidence(context: DecisionContext) {
 function buildSuppressedResult(
   decisionCode: string,
   decisionLabel: string,
-  reasonCodes: string[]
+  reasonCodes: string[],
+  derived: DerivedTiming
 ): DecisionResult {
   return buildResult({
     responseType: "suppressed",
@@ -470,7 +549,8 @@ function buildSuppressedResult(
     humanReviewRequired: false,
     escalationRequired: false,
     errors: [],
-    terminal: false
+    terminal: false,
+    derived
   });
 }
 
@@ -479,7 +559,8 @@ function buildPendingHumanResult(
   decisionLabel: string,
   reasonCodes: string[],
   actionTarget: string | null,
-  confidence = 0.55
+  confidence = 0.55,
+  derived: DerivedTiming
 ): DecisionResult {
   return buildResult({
     responseType: "pending_human",
@@ -496,7 +577,8 @@ function buildPendingHumanResult(
     humanReviewRequired: true,
     escalationRequired: false,
     errors: [],
-    terminal: false
+    terminal: false,
+    derived
   });
 }
 
@@ -506,7 +588,8 @@ function buildSuccessResult(
   reasonCodes: string[],
   actionType: string,
   actionChannel: string,
-  actionTarget: string
+  actionTarget: string,
+  derived: DerivedTiming
 ): DecisionResult {
   return buildResult({
     responseType: "success",
@@ -523,7 +606,8 @@ function buildSuccessResult(
     humanReviewRequired: false,
     escalationRequired: false,
     errors: [],
-    terminal: false
+    terminal: false,
+    derived
   });
 }
 
