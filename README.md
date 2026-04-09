@@ -131,19 +131,33 @@ POSTGRES_SSL_MODE=require
 POSTGRES_MAX_CONNECTIONS=10
 ```
 
-5. Install dependencies and build
-6. Run with pm2
+5. Install dependencies and build:
+
+```bash
+npm ci
+npm run build
+npm run migrate
+```
+
+6. Start with PM2 or systemd:
+
+```bash
+pm2 start ecosystem.config.cjs
+# or
+sudo systemctl start proposal-follow-up-enforcer-runtime
+```
+
 7. Put Nginx in front of the app and proxy to `127.0.0.1:8080`
 
 #### Production rules
 
 - `/ready` returns 503 if persistence is unavailable or AI drafting is enabled without a provider key
-- production startup rejects `DB_CLIENT=sqlite`
-- production startup rejects placeholder secrets by default
-- request logging masks email addresses and redacts auth/signature headers
-- persistence calls are timeout-guarded
-- duplicate requests remain idempotent through stored response replay
-- process restarts are safe because execution, idempotency, and state are persisted
+- Production startup rejects `DB_CLIENT=sqlite`
+- Production startup rejects placeholder secrets by default
+- Request logging masks email addresses and redacts auth/signature headers
+- Persistence calls are timeout-guarded
+- Duplicate requests remain idempotent through stored response replay
+- Process restarts are safe because execution, idempotency, and state are persisted
 
 ---
 
@@ -177,6 +191,9 @@ The enforcer does not send indiscriminately. Each evaluation runs a deterministi
 |-----------|--------|
 | Proposal won, lost, or expired | Suppress — no action |
 | Reply received in last 72 hours | Suppress — recent reply detected |
+| Reply classified as "interested" | Route to human review — prospect is engaged |
+| Reply classified as "objection" | Route to human review — objection requires judgment |
+| Reply classified as "closed" or "lost" | Suppress — no further follow-up needed |
 | Manual pause active | Suppress — until pause expires |
 | High-value ($15K+) at any stage | Route to human review |
 | High-value ($5K+) silent 72h+ | Escalate to owner |
@@ -186,13 +203,87 @@ The enforcer does not send indiscriminately. Each evaluation runs a deterministi
 | Expiry within 2 days | Queue urgency follow-up |
 | 7+ days unresolved | Queue call task to owner |
 
-Every decision is logged with confidence score, reason codes, and enforcement event. Full audit trail. No black box.
+Every decision is logged with a confidence score, reason codes, risk score, and full enforcement event. Complete audit trail. No black box.
+
+### Reply Classification
+
+The engine classifies inbound reply text deterministically before deciding whether to suppress, escalate, or continue cadence:
+
+- **closed** — prospect confirmed they're moving forward (suppress all follow-up)
+- **lost** — prospect chose another vendor or declined (suppress all follow-up)
+- **interested** — prospect is engaged and wants to continue (route to human)
+- **objection** — prospect raised a concern requiring judgment (route to human)
+- **delay** — prospect asked to revisit later (suppress, wait for re-trigger)
+
+Classification can be provided directly in the payload or derived from reply text using deterministic pattern matching.
+
+### Risk Scoring
+
+Every evaluation produces a risk score (0–100) with contributing factors:
+
+- Silence duration relative to escalation thresholds
+- Proposal value relative to approval and escalation thresholds
+- View intent signals
+- Service category risk profile
+- Reply classification
+- Follow-up stage and touch count
+
+Risk level drives priority routing: `low`, `medium`, or `high`.
+
+---
+
+## API
+
+### POST /api/v1/decide
+
+The main enforcement endpoint. Accepts a normalized proposal payload and returns a structured decision with routing, draft messages, escalation summary, and dashboard events.
+
+Every request requires:
+- `Authorization: Bearer <token>`
+- `X-Signature-HMAC-SHA256` header (HMAC of request body using shared secret)
+- `X-Request-Timestamp` within 300s of server time
+
+Response types:
+
+| Type | Meaning |
+|------|---------|
+| `success` | Action queued (follow-up, call task, urgency email) |
+| `suppressed` | No action — intentional hold |
+| `escalated` | Routed to owner with full context |
+| `pending_human` | Human approval required before proceeding |
+| `failed` | Evaluation could not be completed safely |
+
+Supports `dry_run: true` for testing without persisting state.
+
+### Admin endpoints (authenticated)
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /api/v1/proposals/:id/state` | Current follow-up stage, touch counter, terminal state |
+| `GET /api/v1/proposals/:id/diagnostics` | Plain-language explanation of the last decision |
+| `GET /api/v1/executions/:id` | Full stored response for any execution |
+| `GET /api/v1/idempotency/:key` | Confirm replay or conflict behavior |
+
+---
+
+## Testing
+
+```bash
+npm run test:v1           # full validation suite
+npm run test:contracts    # Zod contract validation
+npm run test:scenarios    # decision engine scenario matrix
+npm run test:state        # state machine transitions
+npm run test:failures     # failure modes and edge cases
+npm run test:events       # enforcement event schema validation
+```
+
+Run `test:v1` before any commit that touches the decision engine or state machine.
 
 ---
 
 ## Enforcement Agents Collection
 
-This is part of the Revenue Enforcement Framework — open-source autonomous agents that make revenue leakage structurally impossible.
+This is part of the **Revenue Enforcement Framework** — open-source autonomous agents that make revenue leakage structurally impossible.
 
 | Agent | Status | What It Enforces |
 |-------|--------|------------------|
@@ -207,7 +298,7 @@ This is part of the Revenue Enforcement Framework — open-source autonomous age
 ## Tech Stack
 
 - **n8n** — Workflow automation and enforcement orchestration
-- **Claude Code** — Follow-up message generation, view intent analysis, escalation drafting
+- **Claude Code** — Follow-up message generation, view intent analysis, reply classification, escalation drafting
 - **Fastify + TypeScript** — Decision runtime with HMAC-authenticated API
 - **SQLite / PostgreSQL** — Idempotent execution storage and proposal state persistence
 - **Zod** — Contract validation on every inbound payload
@@ -216,7 +307,7 @@ This is part of the Revenue Enforcement Framework — open-source autonomous age
 
 ## The Law
 
-"Any revenue that depends on human memory, discipline, or follow-up will leak at scale."
+> *"Any revenue that depends on human memory, discipline, or follow-up will leak at scale."*
 
 This agent makes forgotten proposal follow-up structurally impossible.
 
@@ -230,4 +321,4 @@ MIT
 
 **Built by [Physis Advisory](https://physisadvisory.com) — Revenue Integrity Engineering**
 
-We don't help you make more money. We make it impossible to lose money you already earned.
+*We don't help you make more money. We make it impossible to lose money you already earned.*
