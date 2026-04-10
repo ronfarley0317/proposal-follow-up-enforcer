@@ -319,6 +319,6 @@ MIT
 
 ---
 
-**Built by [Physis Advisory](https://physisadvisory.com) — Revenue Integrity Engineering**
+**Built by [Physis Advisory](https://www.linkedin.com/in/ronald-farley-jr-882345157?utm_source=share_via&utm_content=profile&utm_medium=member_ios) — Revenue Integrity Engineering**
 
 *We don't help you make more money. We make it impossible to lose money you already earned.*
