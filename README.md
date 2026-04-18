@@ -1,6 +1,6 @@
 # Proposal Follow-Up Enforcer
 
-**The average service business sends 20 proposals a month and follows up on half of them — that's $750K in pipeline dying in silence every year.**
+**The average service business sends 20 proposals a month and follows up on half of them that's $750K in pipeline dying in silence every year.**
 
 ---
 
@@ -41,9 +41,9 @@ graph LR
 
 **Detection** — Proposal creation event triggers the enforcement clock. The agent reads proposal value, contact, owner, and current follow-up stage. Previous enforcement state is checked so no duplicate actions fire.
 
-**Intervention** — At 24 hours of silence, Follow-Up 1 sends autonomously. At 72 hours, Follow-Up 2 sends with a different angle. View intent is weighted — a proposal opened three times with no reply gets prioritized differently than one never opened. High-value proposals ($5K+) that go silent past 72 hours escalate immediately.
+**Intervention** — At 24 hours of silence, Follow-Up 1 sends autonomously. At 72 hours, Follow-Up 2 sends with a different angle. View intent is weighted a proposal opened three times with no reply gets prioritized differently than one never opened. High-value proposals ($5K+) that go silent past 72 hours escalate immediately.
 
-**Escalation** — At day 10, or when proposal value exceeds $15K, the agent packages full context — proposal value, open history, last outreach timestamp, and a pre-drafted message — and routes to the owner for one-click approval. The owner approves or adjusts. The agent sends. Nothing requires writing from scratch.
+**Escalation** — At day 10, or when proposal value exceeds $15K, the agent packages full context — proposal value, open history, last outreach timestamp, and a pre-drafted message and routes to the owner for one-click approval. The owner approves or adjusts. The agent sends. Nothing requires writing from scratch.
 
 ---
 
